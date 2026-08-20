@@ -1,0 +1,490 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 56;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		A00000000000000000000001 /* AppInfo.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000011 /* AppInfo.swift */; };
+		A00000000000000000000002 /* MeerkatApp.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000012 /* MeerkatApp.swift */; };
+		A00000000000000000000003 /* MenuBarPanel.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000013 /* MenuBarPanel.swift */; };
+		A00000000000000000000004 /* AppInfoTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000014 /* AppInfoTests.swift */; };
+		A00000000000000000000005 /* MenuBarInteractionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000017 /* MenuBarInteractionTests.swift */; };
+		A00000000000000000000006 /* VideoTile.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000019 /* VideoTile.swift */; };
+		A00000000000000000000007 /* VLCKitSPM in Frameworks */ = {isa = PBXBuildFile; productRef = A00000000000000000000090 /* VLCKitSPM */; };
+		A00000000000000000000008 /* Camera.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000001A /* Camera.swift */; };
+		A00000000000000000000009 /* Cameras.json in Resources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000001B /* Cameras.json */; };
+		A0000000000000000000000A /* CameraCatalogTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000001C /* CameraCatalogTests.swift */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXContainerItemProxy section */
+		A00000000000000000000031 /* PBXContainerItemProxy */ = {
+			isa = PBXContainerItemProxy;
+			containerPortal = A00000000000000000000020 /* Project object */;
+			proxyType = 1;
+			remoteGlobalIDString = A00000000000000000000021;
+			remoteInfo = Meerkat;
+		};
+/* End PBXContainerItemProxy section */
+
+/* Begin PBXFileReference section */
+		A00000000000000000000011 /* AppInfo.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppInfo.swift; sourceTree = "<group>"; };
+		A00000000000000000000012 /* MeerkatApp.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MeerkatApp.swift; sourceTree = "<group>"; };
+		A00000000000000000000013 /* MenuBarPanel.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarPanel.swift; sourceTree = "<group>"; };
+		A00000000000000000000014 /* AppInfoTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AppInfoTests.swift; sourceTree = "<group>"; };
+		A00000000000000000000015 /* Meerkat.app */ = {isa = PBXFileReference; explicitFileType = wrapper.application; includeInIndex = 0; path = Meerkat.app; sourceTree = BUILT_PRODUCTS_DIR; };
+		A00000000000000000000016 /* MeerkatTests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MeerkatTests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		A00000000000000000000017 /* MenuBarInteractionTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = MenuBarInteractionTests.swift; sourceTree = "<group>"; };
+		A00000000000000000000018 /* MeerkatUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MeerkatUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
+		A00000000000000000000019 /* VideoTile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoTile.swift; sourceTree = "<group>"; };
+		A0000000000000000000001A /* Camera.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Camera.swift; sourceTree = "<group>"; };
+		A0000000000000000000001B /* Cameras.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = Cameras.json; sourceTree = "<group>"; };
+		A0000000000000000000001C /* CameraCatalogTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraCatalogTests.swift; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		A00000000000000000000041 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A00000000000000000000007 /* VLCKitSPM in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A00000000000000000000042 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A00000000000000000000047 /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		A00000000000000000000050 = {
+			isa = PBXGroup;
+			children = (
+				A00000000000000000000051 /* Meerkat */,
+				A00000000000000000000052 /* MeerkatTests */,
+				A00000000000000000000054 /* MeerkatUITests */,
+				A00000000000000000000053 /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		A00000000000000000000051 /* Meerkat */ = {
+			isa = PBXGroup;
+			children = (
+				A00000000000000000000011 /* AppInfo.swift */,
+				A0000000000000000000001A /* Camera.swift */,
+				A0000000000000000000001B /* Cameras.json */,
+				A00000000000000000000012 /* MeerkatApp.swift */,
+				A00000000000000000000013 /* MenuBarPanel.swift */,
+				A00000000000000000000019 /* VideoTile.swift */,
+			);
+			path = Meerkat;
+			sourceTree = "<group>";
+		};
+		A00000000000000000000052 /* MeerkatTests */ = {
+			isa = PBXGroup;
+			children = (
+				A00000000000000000000014 /* AppInfoTests.swift */,
+				A0000000000000000000001C /* CameraCatalogTests.swift */,
+			);
+			path = MeerkatTests;
+			sourceTree = "<group>";
+		};
+		A00000000000000000000053 /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				A00000000000000000000015 /* Meerkat.app */,
+				A00000000000000000000016 /* MeerkatTests.xctest */,
+				A00000000000000000000018 /* MeerkatUITests.xctest */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		A00000000000000000000054 /* MeerkatUITests */ = {
+			isa = PBXGroup;
+			children = (
+				A00000000000000000000017 /* MenuBarInteractionTests.swift */,
+			);
+			path = MeerkatUITests;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXNativeTarget section */
+		A00000000000000000000021 /* Meerkat */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A00000000000000000000061 /* Build configuration list for PBXNativeTarget "Meerkat" */;
+			buildPhases = (
+				A00000000000000000000043 /* Sources */,
+				A00000000000000000000041 /* Frameworks */,
+				A00000000000000000000045 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = Meerkat;
+			packageProductDependencies = (
+				A00000000000000000000090 /* VLCKitSPM */,
+			);
+			productName = Meerkat;
+			productReference = A00000000000000000000015 /* Meerkat.app */;
+			productType = "com.apple.product-type.application";
+		};
+		A00000000000000000000022 /* MeerkatTests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A00000000000000000000062 /* Build configuration list for PBXNativeTarget "MeerkatTests" */;
+			buildPhases = (
+				A00000000000000000000044 /* Sources */,
+				A00000000000000000000042 /* Frameworks */,
+				A00000000000000000000046 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				A00000000000000000000032 /* PBXTargetDependency */,
+			);
+			name = MeerkatTests;
+			productName = MeerkatTests;
+			productReference = A00000000000000000000016 /* MeerkatTests.xctest */;
+			productType = "com.apple.product-type.bundle.unit-test";
+		};
+		A00000000000000000000023 /* MeerkatUITests */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = A00000000000000000000063 /* Build configuration list for PBXNativeTarget "MeerkatUITests" */;
+			buildPhases = (
+				A00000000000000000000049 /* Sources */,
+				A00000000000000000000047 /* Frameworks */,
+				A00000000000000000000048 /* Resources */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+				A00000000000000000000034 /* PBXTargetDependency */,
+			);
+			name = MeerkatUITests;
+			productName = MeerkatUITests;
+			productReference = A00000000000000000000018 /* MeerkatUITests.xctest */;
+			productType = "com.apple.product-type.bundle.ui-testing";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		A00000000000000000000020 /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				BuildIndependentTargetsInParallel = 1;
+				LastSwiftUpdateCheck = 2660;
+				LastUpgradeCheck = 2660;
+				TargetAttributes = {
+					A00000000000000000000021 = {
+						CreatedOnToolsVersion = 26.0;
+					};
+					A00000000000000000000022 = {
+						CreatedOnToolsVersion = 26.0;
+						TestTargetID = A00000000000000000000021;
+					};
+					A00000000000000000000023 = {
+						CreatedOnToolsVersion = 26.0;
+						TestTargetID = A00000000000000000000021;
+					};
+				};
+			};
+			buildConfigurationList = A00000000000000000000060 /* Build configuration list for PBXProject "Meerkat" */;
+			compatibilityVersion = "Xcode 14.0";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = A00000000000000000000050;
+			packageReferences = (
+				A00000000000000000000080 /* XCRemoteSwiftPackageReference "vlckit-spm" */,
+			);
+			productRefGroup = A00000000000000000000053 /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				A00000000000000000000021 /* Meerkat */,
+				A00000000000000000000022 /* MeerkatTests */,
+				A00000000000000000000023 /* MeerkatUITests */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXResourcesBuildPhase section */
+		A00000000000000000000045 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A00000000000000000000009 /* Cameras.json in Resources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A00000000000000000000046 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A00000000000000000000048 /* Resources */ = {
+			isa = PBXResourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXResourcesBuildPhase section */
+
+/* Begin PBXSourcesBuildPhase section */
+		A00000000000000000000043 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A00000000000000000000001 /* AppInfo.swift in Sources */,
+				A00000000000000000000008 /* Camera.swift in Sources */,
+				A00000000000000000000002 /* MeerkatApp.swift in Sources */,
+				A00000000000000000000003 /* MenuBarPanel.swift in Sources */,
+				A00000000000000000000006 /* VideoTile.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A00000000000000000000044 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A00000000000000000000004 /* AppInfoTests.swift in Sources */,
+				A0000000000000000000000A /* CameraCatalogTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+		A00000000000000000000049 /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				A00000000000000000000005 /* MenuBarInteractionTests.swift in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin PBXTargetDependency section */
+		A00000000000000000000032 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A00000000000000000000021 /* Meerkat */;
+			targetProxy = A00000000000000000000031 /* PBXContainerItemProxy */;
+		};
+		A00000000000000000000034 /* PBXTargetDependency */ = {
+			isa = PBXTargetDependency;
+			target = A00000000000000000000021 /* Meerkat */;
+			targetProxy = A00000000000000000000031 /* PBXContainerItemProxy */;
+		};
+/* End PBXTargetDependency section */
+
+/* Begin XCBuildConfiguration section */
+		A00000000000000000000071 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				ONLY_ACTIVE_ARCH = YES;
+				SWIFT_ACTIVE_COMPILATION_CONDITIONS = DEBUG;
+				SWIFT_OPTIMIZATION_LEVEL = "-Onone";
+			};
+			name = Debug;
+		};
+		A00000000000000000000072 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				COPY_PHASE_STRIP = YES;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				GCC_C_LANGUAGE_STANDARD = gnu17;
+				SWIFT_COMPILATION_MODE = wholemodule;
+			};
+			name = Release;
+		};
+		A00000000000000000000073 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = "";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Meerkat;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				INFOPLIST_KEY_LSUIElement = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.exddc.meerkat;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Debug;
+		};
+		A00000000000000000000074 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ASSETCATALOG_COMPILER_APPICON_NAME = "";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				ENABLE_HARDENED_RUNTIME = YES;
+				GENERATE_INFOPLIST_FILE = YES;
+				INFOPLIST_KEY_CFBundleDisplayName = Meerkat;
+				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
+				INFOPLIST_KEY_LSUIElement = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				MARKETING_VERSION = 0.1.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.exddc.meerkat;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_VERSION = 6.0;
+			};
+			name = Release;
+		};
+		A00000000000000000000075 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.exddc.meerkatTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_VERSION = 6.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Meerkat.app/Contents/MacOS/Meerkat";
+			};
+			name = Debug;
+		};
+		A00000000000000000000076 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				BUNDLE_LOADER = "$(TEST_HOST)";
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.exddc.meerkatTests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_VERSION = 6.0;
+				TEST_HOST = "$(BUILT_PRODUCTS_DIR)/Meerkat.app/Contents/MacOS/Meerkat";
+			};
+			name = Release;
+		};
+		A00000000000000000000077 /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.exddc.meerkatUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_VERSION = 6.0;
+				TEST_TARGET_NAME = Meerkat;
+			};
+			name = Debug;
+		};
+		A00000000000000000000078 /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CODE_SIGN_STYLE = Automatic;
+				CURRENT_PROJECT_VERSION = 1;
+				GENERATE_INFOPLIST_FILE = YES;
+				MACOSX_DEPLOYMENT_TARGET = 26.0;
+				PRODUCT_BUNDLE_IDENTIFIER = com.exddc.meerkatUITests;
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				SDKROOT = macosx;
+				SWIFT_VERSION = 6.0;
+				TEST_TARGET_NAME = Meerkat;
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		A00000000000000000000060 /* Build configuration list for PBXProject "Meerkat" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A00000000000000000000071 /* Debug */,
+				A00000000000000000000072 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A00000000000000000000061 /* Build configuration list for PBXNativeTarget "Meerkat" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A00000000000000000000073 /* Debug */,
+				A00000000000000000000074 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A00000000000000000000062 /* Build configuration list for PBXNativeTarget "MeerkatTests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A00000000000000000000075 /* Debug */,
+				A00000000000000000000076 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		A00000000000000000000063 /* Build configuration list for PBXNativeTarget "MeerkatUITests" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				A00000000000000000000077 /* Debug */,
+				A00000000000000000000078 /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		A00000000000000000000080 /* XCRemoteSwiftPackageReference "vlckit-spm" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/tylerjonesio/vlckit-spm.git";
+			requirement = {
+				kind = exactVersion;
+				version = 3.6.0;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		A00000000000000000000090 /* VLCKitSPM */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = A00000000000000000000080 /* XCRemoteSwiftPackageReference "vlckit-spm" */;
+			productName = VLCKitSPM;
+		};
+/* End XCSwiftPackageProductDependency section */
+	};
+	rootObject = A00000000000000000000020 /* Project object */;
+}
