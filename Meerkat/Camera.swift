@@ -1,9 +1,36 @@
 import Foundation
+import SwiftData
 
-struct Camera: Codable, Equatable, Identifiable, Sendable {
-    let id: String
-    let name: String
-    let streamURL: URL
+@Model
+final class Camera {
+    var cameraID: UUID
+    var name: String
+    var streamURLString: String
+    var sortIndex: Int
+
+    init(
+        name: String,
+        streamURLString: String,
+        sortIndex: Int = 0,
+        cameraID: UUID = UUID()
+    ) {
+        self.cameraID = cameraID
+        self.name = name
+        self.streamURLString = streamURLString
+        self.sortIndex = sortIndex
+    }
+
+    var streamURL: URL {
+        URL(string: streamURLString) ?? URL(string: "https://invalid.invalid")!
+    }
+
+    var playableStreamURL: URL? {
+        guard let parsed = URL(string: streamURLString),
+              let host = parsed.host, !host.isEmpty else {
+            return nil
+        }
+        return streamURL
+    }
 
     var logEndpoint: String {
         guard var components = URLComponents(
@@ -19,40 +46,30 @@ struct Camera: Codable, Equatable, Identifiable, Sendable {
         components.fragment = nil
         return components.string ?? "<invalid URL>"
     }
-}
 
-enum CameraCatalog {
-    static let bundled: [Camera] = {
-        do {
-            let cameras = try load()
-#if DEBUG
-            print("[Meerkat][Config] loaded \(cameras.count) cameras")
-            for camera in cameras {
-                print("[Meerkat][Config][\(camera.id)] endpoint=\(camera.logEndpoint)")
+    var logRedactions: [(value: String, replacement: String)] {
+        var values = [(streamURL.absoluteString, logEndpoint)]
+        let components = URLComponents(
+            url: streamURL,
+            resolvingAgainstBaseURL: false
+        )
+
+        for item in components?.queryItems ?? [] {
+            if ["user", "password"].contains(item.name),
+               let value = item.value,
+               !value.isEmpty {
+                values.append((value, "<redacted>"))
             }
-#endif
-            return cameras
-        } catch {
-#if DEBUG
-            print("[Meerkat][Config] failed to load Cameras.json: \(error)")
-#endif
-            return []
-        }
-    }()
-
-    static func load(bundle: Bundle = .main) throws -> [Camera] {
-        guard let url = bundle.url(forResource: "Cameras", withExtension: "json") else {
-            throw CameraCatalogError.missingConfiguration
         }
 
-        return try decode(Data(contentsOf: url))
-    }
+        for item in components?.percentEncodedQueryItems ?? [] {
+            if ["user", "password"].contains(item.name),
+               let value = item.value,
+               !value.isEmpty {
+                values.append((value, "<redacted>"))
+            }
+        }
 
-    static func decode(_ data: Data) throws -> [Camera] {
-        try JSONDecoder().decode([Camera].self, from: data)
+        return values
     }
-}
-
-private enum CameraCatalogError: Error {
-    case missingConfiguration
 }

@@ -1,3 +1,4 @@
+import SwiftData
 import SwiftUI
 
 @main
@@ -6,9 +7,11 @@ struct MeerkatApp: App {
         MenuBarExtra {
             MenuBarPanel()
         } label: {
-            Image(systemName: AppInfo.menuBarSymbol)
+            Image(AppInfo.menuBarIcon)
+                .renderingMode(.template)
                 .accessibilityLabel(AppInfo.name)
         }
         .menuBarExtraStyle(.window)
+        .modelContainer(Persistence.container)
     }
 }

@@ -7,7 +7,10 @@ struct VideoTile: View {
     let isActive: Bool
     let playbackEnabled: Bool
 
+    @AppStorage(AppInfo.cameraLabelVisibilityKey) private var cameraLabelVisibility = CameraLabelVisibility.always
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var playbackState = PlaybackState.connecting
+    @State private var isHovering = false
 
     init(camera: Camera, isActive: Bool, playbackEnabled: Bool = true) {
         self.camera = camera
@@ -15,11 +18,20 @@ struct VideoTile: View {
         self.playbackEnabled = playbackEnabled
     }
 
+    private var showsCameraLabel: Bool {
+        cameraLabelVisibility.isVisible(isHovering: isHovering)
+    }
+
+    private var labelAnimation: Animation? {
+        reduceMotion ? nil : .smooth(duration: 0.2)
+    }
+
     var body: some View {
         ZStack {
             if playbackEnabled {
                 VideoPlayerView(
                     camera: camera,
+                    streamURLString: camera.streamURLString,
                     isActive: isActive,
                     onStateChange: { playbackState = $0 }
                 )
@@ -36,37 +48,41 @@ struct VideoTile: View {
                             Text(status.text)
                         }
                         .font(.caption)
-                        .foregroundStyle(.white)
                         .padding(.horizontal, 8)
                         .padding(.vertical, 6)
-                        .glassEffect(.regular, in: .rect(cornerRadius: 8))
-                        .accessibilityIdentifier("\(camera.id)-status")
+                        .videoOverlay()
+                        .accessibilityIdentifier("\(camera.cameraID.uuidString)-status")
                     }
 
-                    VStack {
-                        Spacer()
-
-                        HStack {
-                            Text(camera.name)
-                                .font(.caption.weight(.medium))
-                                .foregroundStyle(.white)
-                                .lineLimit(1)
-                                .padding(.horizontal, 8)
-                                .padding(.vertical, 5)
-                                .glassEffect(.regular, in: .rect(cornerRadius: 8))
-                                .accessibilityIdentifier("\(camera.id)-name")
-
+                    if showsCameraLabel {
+                        VStack {
                             Spacer()
+
+                            HStack {
+                                Text(camera.name)
+                                    .font(.caption.weight(.medium))
+                                    .lineLimit(1)
+                                    .padding(.horizontal, 8)
+                                    .padding(.vertical, 5)
+                                    .videoOverlay()
+                                    .accessibilityIdentifier("\(camera.cameraID.uuidString)-name")
+
+                                Spacer()
+                            }
                         }
+                        .padding(8)
+                        .transition(.opacity)
                     }
-                    .padding(8)
                 }
                 .frame(maxWidth: .infinity, maxHeight: .infinity)
+                .animation(labelAnimation, value: showsCameraLabel)
             }
+            .environment(\.colorScheme, .dark)
         }
         .aspectRatio(16 / 9, contentMode: .fit)
         .background(.black)
         .clipShape(.rect(cornerRadius: 12))
+        .onHover { isHovering = $0 }
         .onChange(of: isActive) { _, active in
             if !active {
                 playbackState = .connecting
@@ -97,11 +113,12 @@ private enum PlaybackState: Equatable {
 
 private struct VideoPlayerView: NSViewRepresentable {
     let camera: Camera
+    let streamURLString: String
     let isActive: Bool
     let onStateChange: @MainActor (PlaybackState) -> Void
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(camera: camera, onStateChange: onStateChange)
+        Coordinator(cameraID: camera.cameraID, onStateChange: onStateChange)
     }
 
     func makeNSView(context: Context) -> VLCVideoView {
@@ -117,7 +134,7 @@ private struct VideoPlayerView: NSViewRepresentable {
     func updateNSView(_ videoView: VLCVideoView, context: Context) {
         configureAccessibility(for: videoView)
         context.coordinator.onStateChange = onStateChange
-        context.coordinator.setActive(isActive, in: videoView)
+        context.coordinator.update(camera: camera, isActive: isActive, in: videoView)
     }
 
     static func dismantleNSView(_ videoView: VLCVideoView, coordinator: Coordinator) {
@@ -128,7 +145,7 @@ private struct VideoPlayerView: NSViewRepresentable {
         videoView.setAccessibilityElement(true)
         videoView.setAccessibilityRole(.group)
         videoView.setAccessibilityLabel("\(camera.name) video")
-        videoView.setAccessibilityIdentifier("\(camera.id)-video")
+        videoView.setAccessibilityIdentifier("\(camera.cameraID.uuidString)-video")
     }
 
     @MainActor
@@ -137,7 +154,8 @@ private struct VideoPlayerView: NSViewRepresentable {
 
         private let player: VLCMediaPlayer
         private let cameraID: String
-        private let endpoint: String
+        private var endpoint = ""
+        private var streamURLString = ""
         private var isActive = false
         private var hasPlayed = false
         private var lastReportedState = PlaybackState.connecting
@@ -146,40 +164,80 @@ private struct VideoPlayerView: NSViewRepresentable {
         private var reconnectTask: Task<Void, Never>?
 
         init(
-            camera: Camera,
+            cameraID: UUID,
             onStateChange: @escaping @MainActor (PlaybackState) -> Void
         ) {
-            CameraCertificateTrust.shared.activate()
             player = VLCMediaPlayer(library: CameraCertificateTrust.shared.library)
-            cameraID = camera.id
-            endpoint = camera.logEndpoint
+            self.cameraID = cameraID.uuidString
             self.onStateChange = onStateChange
             super.init()
-
-            let media = VLCMedia(url: camera.streamURL)
-            media.addOption(":no-audio")
-            media.addOption(":network-caching=300")
-            if camera.streamURL.path == "/flv" {
-                media.addOption(":http-continuous")
-            }
-            player.media = media
             player.delegate = self
-            debugLog("initialized endpoint=\(endpoint)")
+        }
+
+        func update(camera: Camera, isActive active: Bool, in videoView: VLCVideoView) {
+            if camera.streamURLString != streamURLString {
+                let shouldPlay = active
+                if isActive {
+                    stop()
+                }
+
+                streamURLString = camera.streamURLString
+                endpoint = camera.logEndpoint
+                replaceMedia(with: camera)
+
+                if shouldPlay {
+                    start(in: videoView)
+                }
+                return
+            }
+
+            setActive(active, in: videoView)
         }
 
         func setActive(_ active: Bool, in videoView: VLCVideoView) {
             guard active != isActive else { return }
-            isActive = active
 
             if active {
-                debugLog("start")
-                lastReportedState = .connecting
-                onStateChange(.connecting)
-                player.drawable = videoView
-                player.play()
+                start(in: videoView)
             } else {
                 stop()
             }
+        }
+
+        private func replaceMedia(with camera: Camera) {
+            hasPlayed = false
+            lastStateLog = nil
+
+            guard let url = camera.playableStreamURL else {
+                player.media = nil
+                debugLog("waiting for stream URL")
+                return
+            }
+
+            CameraCertificateTrust.shared.register(camera)
+            let media = VLCMedia(url: url)
+            media.addOption(":no-audio")
+            media.addOption(":network-caching=300")
+            if url.path == "/flv" {
+                media.addOption(":http-continuous")
+            }
+            player.media = media
+            debugLog("media endpoint=\(endpoint)")
+        }
+
+        private func start(in videoView: VLCVideoView) {
+            isActive = true
+            lastReportedState = .connecting
+            onStateChange(.connecting)
+            debugLog("start")
+
+            guard player.media != nil else {
+                debugLog("start skipped, no media")
+                return
+            }
+
+            player.drawable = videoView
+            player.play()
         }
 
         func stop() {
@@ -307,47 +365,15 @@ private struct VideoPlayerView: NSViewRepresentable {
 
 @MainActor
 private final class CameraCertificateTrust: NSObject, @MainActor VLCCustomDialogRendererProtocol {
-    static let shared = CameraCertificateTrust(cameras: CameraCatalog.bundled)
+    static let shared = CameraCertificateTrust()
 
-    private let allowedHosts: Set<String>
-    private let redactions: [(value: String, replacement: String)]
-    private let logger: RedactedVLCLogger
+    private var allowedHosts = Set<String>()
+    private var redactions: [(value: String, replacement: String)] = []
+    private let logger = RedactedVLCLogger()
     let library: VLCLibrary
     private var dialogProvider: VLCDialogProvider!
 
-    private init(cameras: [Camera]) {
-        allowedHosts = Set(
-            cameras.compactMap { camera in
-                guard camera.streamURL.path == "/flv" else { return nil }
-                return camera.streamURL.host
-            }
-        )
-        redactions = cameras.flatMap { camera in
-            var values = [(camera.streamURL.absoluteString, camera.logEndpoint)]
-            let components = URLComponents(
-                url: camera.streamURL,
-                resolvingAgainstBaseURL: false
-            )
-
-            for item in components?.queryItems ?? [] {
-                if ["user", "password"].contains(item.name),
-                   let value = item.value,
-                   !value.isEmpty {
-                    values.append((value, "<redacted>"))
-                }
-            }
-
-            for item in components?.percentEncodedQueryItems ?? [] {
-                if ["user", "password"].contains(item.name),
-                   let value = item.value,
-                   !value.isEmpty {
-                    values.append((value, "<redacted>"))
-                }
-            }
-
-            return values
-        }
-        logger = RedactedVLCLogger(redactions: redactions)
+    private override init() {
         library = VLCLibrary(options: ["--no-drop-late-frames"])
         super.init()
 
@@ -358,7 +384,18 @@ private final class CameraCertificateTrust: NSObject, @MainActor VLCCustomDialog
         dialogProvider.customRenderer = self
     }
 
-    func activate() {}
+    func register(_ camera: Camera) {
+        if camera.streamURL.path == "/flv", let host = camera.streamURL.host {
+            allowedHosts.insert(host)
+        }
+        for redaction in camera.logRedactions {
+            guard !redactions.contains(where: { $0.value == redaction.value }) else {
+                continue
+            }
+            redactions.append(redaction)
+        }
+        logger.redactions = redactions
+    }
 
     func showError(withTitle error: String, message: String) {
         debugLog("error title=\(sanitized(error)) message=\(sanitized(message))")
@@ -432,20 +469,21 @@ private final class CameraCertificateTrust: NSObject, @MainActor VLCCustomDialog
 
 private final class RedactedVLCLogger: NSObject, VLCLogging {
     var level = VLCLogLevel.debug
+    var redactions: [(value: String, replacement: String)] = [] {
+        didSet {
+            expandedRedactions = redactions.flatMap { redaction in
+                guard let encoded = redaction.value.addingPercentEncoding(
+                    withAllowedCharacters: .alphanumerics
+                ) else {
+                    return [redaction]
+                }
 
-    private let redactions: [(value: String, replacement: String)]
-
-    init(redactions: [(value: String, replacement: String)]) {
-        self.redactions = redactions.flatMap { redaction in
-            guard let encoded = redaction.value.addingPercentEncoding(
-                withAllowedCharacters: .alphanumerics
-            ) else {
-                return [redaction]
+                return [redaction, (encoded, redaction.replacement)]
             }
-
-            return [redaction, (encoded, redaction.replacement)]
         }
     }
+
+    private var expandedRedactions: [(value: String, replacement: String)] = []
 
     func handleMessage(
         _ message: String,
@@ -461,13 +499,13 @@ private final class RedactedVLCLogger: NSObject, VLCLogging {
             )
         }
 
-        let safeMessage = redactions.reduce(message) { result, redaction in
+        let safeMessage = expandedRedactions.reduce(message) { result, redaction in
             result.replacingOccurrences(
                 of: redaction.value,
                 with: redaction.replacement
             )
         }
-        let keywords = [
+        let keywords: [String] = [
             "access",
             "authentication",
             "certificate",
@@ -481,10 +519,38 @@ private final class RedactedVLCLogger: NSObject, VLCLogging {
             "timestamp",
             "tls",
         ]
-        guard keywords.contains(where: safeMessage.localizedCaseInsensitiveContains) else {
+        guard keywords.contains(where: { safeMessage.localizedCaseInsensitiveContains($0) }) else {
             return
         }
         print("[Meerkat][VLC][\(context?.module ?? "unknown")] \(safeMessage)")
 #endif
     }
+}
+
+#Preview("Light") {
+    VideoTile(
+        camera: Camera(
+            name: "Front Door",
+            streamURLString: "https://camera.test/live"
+        ),
+        isActive: true,
+        playbackEnabled: false
+    )
+    .frame(width: 320)
+    .padding()
+    .preferredColorScheme(.light)
+}
+
+#Preview("Dark") {
+    VideoTile(
+        camera: Camera(
+            name: "Front Door",
+            streamURLString: "https://camera.test/live"
+        ),
+        isActive: true,
+        playbackEnabled: false
+    )
+    .frame(width: 320)
+    .padding()
+    .preferredColorScheme(.dark)
 }

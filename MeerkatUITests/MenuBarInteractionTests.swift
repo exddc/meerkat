@@ -10,16 +10,11 @@ final class MenuBarInteractionTests: XCTestCase {
         XCTAssertTrue(statusItem.waitForExistence(timeout: 5))
         statusItem.click()
 
-        for number in 1...4 {
-            let video = app.descendants(matching: .any)["camera-\(number)-video"]
-            XCTAssertTrue(video.waitForExistence(timeout: 5))
-
-            let name = app.staticTexts["camera-\(number)-name"]
-            XCTAssertTrue(name.waitForExistence(timeout: 2))
-        }
+        let settings = app.buttons["settings-button"]
+        XCTAssertTrue(settings.waitForExistence(timeout: 5))
 
         let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
-        attachment.name = "Meerkat camera grid"
+        attachment.name = "Meerkat panel"
         attachment.lifetime = .keepAlways
         add(attachment)
     }

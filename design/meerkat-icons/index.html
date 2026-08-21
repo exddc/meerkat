@@ -1,0 +1,290 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="utf-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1" />
+  <title>Meerkat outline icons — variants & comparisons</title>
+  <style>
+    :root {
+      --bg: #111114;
+      --bg-2: #1a1a1f;
+      --bg-3: #24242b;
+      --ink: #f4f1ea;
+      --muted: #9a958c;
+      --line: #2e2e36;
+      --accent: #e8b15a;
+    }
+    * { box-sizing: border-box; }
+    body {
+      margin: 0;
+      font: 15px/1.45 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
+      background: var(--bg);
+      color: var(--ink);
+    }
+    header {
+      padding: 40px 32px 24px;
+      max-width: 1200px;
+      margin: 0 auto;
+    }
+    h1 { font-size: 28px; font-weight: 590; letter-spacing: -0.03em; margin: 0 0 8px; }
+    p.lede { color: var(--muted); max-width: 62ch; margin: 0; }
+    section { padding: 12px 32px 40px; max-width: 1200px; margin: 0 auto; }
+    h2 {
+      font-size: 13px;
+      font-weight: 600;
+      letter-spacing: 0.08em;
+      text-transform: uppercase;
+      color: var(--accent);
+      margin: 0 0 16px;
+    }
+    .grid {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(180px, 1fr));
+      gap: 12px;
+    }
+    .card {
+      background: var(--bg-2);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 18px 16px 14px;
+    }
+    .card .stage {
+      height: 88px;
+      display: grid;
+      place-items: center;
+      color: var(--ink);
+    }
+    .card .stage svg { width: 64px; height: 64px; }
+    .card h3 { margin: 8px 0 2px; font-size: 14px; font-weight: 600; }
+    .card p { margin: 0; font-size: 12px; color: var(--muted); }
+    .sizes {
+      display: flex;
+      align-items: flex-end;
+      justify-content: space-between;
+      gap: 8px;
+      margin-top: 14px;
+      padding-top: 12px;
+      border-top: 1px solid var(--line);
+      color: var(--ink);
+    }
+    .sizes figure { margin: 0; text-align: center; }
+    .sizes figcaption { font-size: 10px; color: var(--muted); margin-top: 4px; }
+    .sizes svg { display: block; margin: 0 auto; }
+    .menubar {
+      display: flex;
+      align-items: center;
+      justify-content: flex-end;
+      gap: 14px;
+      height: 28px;
+      padding: 0 12px;
+      margin-top: 12px;
+      border-radius: 8px;
+      background: #1c1c1e;
+      color: #f5f5f7;
+      font-size: 12px;
+      letter-spacing: 0.02em;
+    }
+    .menubar.light {
+      background: #ececec;
+      color: #1d1d1f;
+    }
+    .menubar svg { width: 18px; height: 18px; }
+    .compare {
+      display: grid;
+      grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+      gap: 12px;
+    }
+    .compare .card .stage.photo {
+      height: 140px;
+      overflow: hidden;
+      border-radius: 8px;
+      background: #000;
+    }
+    .compare img {
+      width: 100%;
+      height: 140px;
+      object-fit: contain;
+      background: #1a1a1f;
+    }
+    .note {
+      background: var(--bg-2);
+      border: 1px solid var(--line);
+      border-radius: 14px;
+      padding: 20px 22px;
+      color: var(--muted);
+      max-width: 80ch;
+    }
+    .note strong { color: var(--ink); font-weight: 600; }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      font-size: 13px;
+    }
+    th, td {
+      text-align: left;
+      padding: 10px 12px;
+      border-bottom: 1px solid var(--line);
+      vertical-align: top;
+    }
+    th { color: var(--muted); font-weight: 600; font-size: 11px; text-transform: uppercase; letter-spacing: 0.06em; }
+    .pick { outline: 1px solid var(--accent); }
+  </style>
+</head>
+<body>
+  <header>
+    <h1>Meerkat head — slim outline icons</h1>
+    <p class="lede">Front-facing head and neck, looking at the viewer. Six Lucide-weight variants, then the same marks next to real apps and icon-system animals.</p>
+  </header>
+
+  <section>
+    <h2>Generated variants</h2>
+    <div class="grid" id="variants"></div>
+  </section>
+
+  <section>
+    <h2>How they sit in a menu bar</h2>
+    <div class="card">
+      <div class="menubar" id="bar-dark"></div>
+      <div class="menubar light" id="bar-light" style="margin-top:8px"></div>
+    </div>
+  </section>
+
+  <section>
+    <h2>Same genre — animal outline icon systems</h2>
+    <div class="grid" id="systems"></div>
+  </section>
+
+  <section>
+    <h2>Real apps & stock meerkats</h2>
+    <div class="compare" id="apps"></div>
+  </section>
+
+  <section>
+    <h2>Verdict</h2>
+    <div class="note">
+      <p><strong>Lookout</strong> is the one that belongs in this app. It keeps the 2015 Meerkat silhouette (bulbous head, round side-ears, long thin neck) but drops the cute closed eyes and tan fills. Two open rings read as “watching you,” which matches a camera menu-bar utility better than Lucide’s tick-eyes or the original Meerkat smile.</p>
+      <p>Scout adds a foreshortened snout — more anatomically meerkat, slightly noisier at 16px. Gaze is the closest to Lucide Cat, but the tick-eyes stop looking at you. Menu is the 18px fallback if Lookout’s rings collapse.</p>
+    </div>
+    <table>
+      <thead>
+        <tr><th>Mark</th><th>View</th><th>Weight</th><th>Reads as meerkat?</th><th>Works at 16–18px?</th></tr>
+      </thead>
+      <tbody>
+        <tr><td>Lookout (ours)</td><td>Front, head+neck</td><td>1.5 outline</td><td>Yes — ears + neck</td><td>Yes, rings still read as eyes</td></tr>
+        <tr><td>Scout (ours)</td><td>Front + snout</td><td>1.5 outline</td><td>Strongest anatomy</td><td>Snout muddies</td></tr>
+        <tr><td>2015 Meerkat app</td><td>Front, filled</td><td>White fill, no stroke</td><td>Instantly</td><td>Yes, as app icon, not template</td></tr>
+        <tr><td>Meerkat brand (2015)</td><td>Profile</td><td>Heavy fill+stroke</td><td>Yes, as a logo</td><td>Too heavy for menu bar</td></tr>
+        <tr><td>Lucide Cat</td><td>Front, no neck</td><td>2.0 outline</td><td>Cat (pointed top ears)</td><td>Excellent</td></tr>
+        <tr><td>Lucide Dog</td><td>Front, floppy ears</td><td>2.0 outline</td><td>Dog</td><td>Busy</td></tr>
+        <tr><td>Tabler Cat</td><td>Front + whiskers</td><td>2.0 outline</td><td>Cat</td><td>Whiskers fail small</td></tr>
+        <tr><td>This app today</td><td>SF Symbol eye</td><td>System</td><td>No — generic watch</td><td>Perfect, but not a meerkat</td></tr>
+        <tr><td>Flaticon stock</td><td>Full-body profile</td><td>Fill + thick stroke</td><td>Yes, clipart</td><td>No</td></tr>
+      </tbody>
+    </table>
+  </section>
+
+  <script>
+    const ns = "http://www.w3.org/2000/svg";
+
+    const variants = [
+      { file: "01-lookout.svg", name: "Lookout", note: "Silhouette + two open eyes. Recommended." },
+      { file: "02-scout.svg", name: "Scout", note: "Same outline, foreshortened snout." },
+      { file: "03-sentinel.svg", name: "Sentinel", note: "Tighter head, tick of a nose." },
+      { file: "04-vigil.svg", name: "Vigil", note: "2015 tuft at the crown, tiny nose." },
+      { file: "05-gaze.svg", name: "Gaze", note: "Lucide-style tick eyes + nose." },
+      { file: "06-menu.svg", name: "Menu", note: "Heavier 1.75 stroke for 18px." },
+    ];
+
+    const systems = [
+      { file: "refs/cat.svg", name: "Lucide Cat", note: "Front face, pointed top ears, no neck." },
+      { file: "refs/dog.svg", name: "Lucide Dog", note: "Front face, floppy ears, busy snout." },
+      { file: "refs/rabbit.svg", name: "Lucide Rabbit", note: "Mostly profile — typical animal icon." },
+      { file: "refs/squirrel.svg", name: "Lucide Squirrel", note: "Full-body profile." },
+      { file: "refs/bird.svg", name: "Lucide Bird", note: "Profile. Slim stroke family." },
+      { file: "refs/tabler-cat.svg", name: "Tabler Cat", note: "Front + whiskers. Too much detail." },
+      { file: "refs/eye.svg", name: "Lucide Eye / this app", note: "What Meerkat uses today (SF Symbol eye)." },
+    ];
+
+    const apps = [
+      { img: "refs/meerkat-2015.webp", name: "Meerkat iOS, 2015", note: "Louie Mantia & Luka Grafera. Front-facing head+neck, filled, closed eyes. Closest cousin — ours is the outline, open-eyed version of this silhouette." },
+      { img: "refs/meerkat-brand.png", name: "Meerkat brand mark", note: "Profile, heavy black stroke, yellow field. Famous, but the wrong view and way too bold for a template menu-bar icon." },
+      { img: "refs/flaticon-meerkat.png", name: "Flaticon stock meerkat", note: "Upright full-body profile. Reads instantly as meerkat, zero use as a 16px outline." },
+    ];
+
+    async function inline(file) {
+      const text = await fetch(file).then(r => r.text());
+      const doc = new DOMParser().parseFromString(text, "image/svg+xml");
+      return doc.documentElement;
+    }
+
+    function sizesRow(svg) {
+      const wrap = document.createElement("div");
+      wrap.className = "sizes";
+      [16, 24, 32, 48].forEach(n => {
+        const fig = document.createElement("figure");
+        const clone = svg.cloneNode(true);
+        clone.setAttribute("width", n);
+        clone.setAttribute("height", n);
+        clone.style.width = n + "px";
+        clone.style.height = n + "px";
+        const cap = document.createElement("figcaption");
+        cap.textContent = n + "px";
+        fig.append(clone, cap);
+        wrap.append(fig);
+      });
+      return wrap;
+    }
+
+    async function card(item, {pick} = {}) {
+      const svg = await inline(item.file);
+      const el = document.createElement("article");
+      el.className = "card" + (pick ? " pick" : "");
+      const stage = document.createElement("div");
+      stage.className = "stage";
+      const big = svg.cloneNode(true);
+      stage.append(big);
+      const h = document.createElement("h3");
+      h.textContent = item.name;
+      const p = document.createElement("p");
+      p.textContent = item.note;
+      el.append(stage, h, p, sizesRow(svg));
+      return { el, svg };
+    }
+
+    (async () => {
+      const variantSvgs = [];
+      for (const [i, item] of variants.entries()) {
+        const { el, svg } = await card(item, { pick: item.name === "Lookout" });
+        document.getElementById("variants").append(el);
+        variantSvgs.push({ name: item.name, svg });
+      }
+
+      const dark = document.getElementById("bar-dark");
+      const light = document.getElementById("bar-light");
+      dark.append("Mon 21 Aug  17:22");
+      light.append("Mon 21 Aug  17:22");
+      variantSvgs.forEach(({ svg }) => {
+        const a = svg.cloneNode(true);
+        const b = svg.cloneNode(true);
+        dark.append(a);
+        light.append(b);
+      });
+
+      for (const item of systems) {
+        const { el } = await card(item);
+        document.getElementById("systems").append(el);
+      }
+
+      for (const item of apps) {
+        const el = document.createElement("article");
+        el.className = "card";
+        el.innerHTML = `
+          <div class="stage photo"><img src="${item.img}" alt="${item.name}"></div>
+          <h3>${item.name}</h3>
+          <p>${item.note}</p>`;
+        document.getElementById("apps").append(el);
+      }
+    })();
+  </script>
+</body>
+</html>

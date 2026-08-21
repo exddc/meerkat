@@ -15,8 +15,11 @@
 		A00000000000000000000006 /* VideoTile.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000019 /* VideoTile.swift */; };
 		A00000000000000000000007 /* VLCKitSPM in Frameworks */ = {isa = PBXBuildFile; productRef = A00000000000000000000090 /* VLCKitSPM */; };
 		A00000000000000000000008 /* Camera.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000001A /* Camera.swift */; };
-		A00000000000000000000009 /* Cameras.json in Resources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000001B /* Cameras.json */; };
-		A0000000000000000000000A /* CameraCatalogTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000001C /* CameraCatalogTests.swift */; };
+		A0000000000000000000000A /* CameraTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000001C /* CameraTests.swift */; };
+		A0000000000000000000000B /* SettingsSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000001D /* SettingsSheet.swift */; };
+		A0000000000000000000000C /* VideoOverlay.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000001E /* VideoOverlay.swift */; };
+		A0000000000000000000000D /* Persistence.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000001F /* Persistence.swift */; };
+		A0000000000000000000000E /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000001B /* Assets.xcassets */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -40,8 +43,11 @@
 		A00000000000000000000018 /* MeerkatUITests.xctest */ = {isa = PBXFileReference; explicitFileType = wrapper.cfbundle; includeInIndex = 0; path = MeerkatUITests.xctest; sourceTree = BUILT_PRODUCTS_DIR; };
 		A00000000000000000000019 /* VideoTile.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoTile.swift; sourceTree = "<group>"; };
 		A0000000000000000000001A /* Camera.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Camera.swift; sourceTree = "<group>"; };
-		A0000000000000000000001B /* Cameras.json */ = {isa = PBXFileReference; lastKnownFileType = text.json; path = Cameras.json; sourceTree = "<group>"; };
-		A0000000000000000000001C /* CameraCatalogTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraCatalogTests.swift; sourceTree = "<group>"; };
+		A0000000000000000000001C /* CameraTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraTests.swift; sourceTree = "<group>"; };
+		A0000000000000000000001D /* SettingsSheet.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = SettingsSheet.swift; sourceTree = "<group>"; };
+		A0000000000000000000001E /* VideoOverlay.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoOverlay.swift; sourceTree = "<group>"; };
+		A0000000000000000000001B /* Assets.xcassets */ = {isa = PBXFileReference; lastKnownFileType = folder.assetcatalog; path = Assets.xcassets; sourceTree = "<group>"; };
+		A0000000000000000000001F /* Persistence.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Persistence.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -84,10 +90,13 @@
 			isa = PBXGroup;
 			children = (
 				A00000000000000000000011 /* AppInfo.swift */,
+				A0000000000000000000001B /* Assets.xcassets */,
 				A0000000000000000000001A /* Camera.swift */,
-				A0000000000000000000001B /* Cameras.json */,
 				A00000000000000000000012 /* MeerkatApp.swift */,
 				A00000000000000000000013 /* MenuBarPanel.swift */,
+				A0000000000000000000001F /* Persistence.swift */,
+				A0000000000000000000001D /* SettingsSheet.swift */,
+				A0000000000000000000001E /* VideoOverlay.swift */,
 				A00000000000000000000019 /* VideoTile.swift */,
 			);
 			path = Meerkat;
@@ -97,7 +106,7 @@
 			isa = PBXGroup;
 			children = (
 				A00000000000000000000014 /* AppInfoTests.swift */,
-				A0000000000000000000001C /* CameraCatalogTests.swift */,
+				A0000000000000000000001C /* CameraTests.swift */,
 			);
 			path = MeerkatTests;
 			sourceTree = "<group>";
@@ -230,7 +239,7 @@
 			isa = PBXResourcesBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A00000000000000000000009 /* Cameras.json in Resources */,
+				A0000000000000000000000E /* Assets.xcassets in Resources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -258,7 +267,10 @@
 				A00000000000000000000001 /* AppInfo.swift in Sources */,
 				A00000000000000000000008 /* Camera.swift in Sources */,
 				A00000000000000000000002 /* MeerkatApp.swift in Sources */,
+				A0000000000000000000000D /* Persistence.swift in Sources */,
 				A00000000000000000000003 /* MenuBarPanel.swift in Sources */,
+				A0000000000000000000000B /* SettingsSheet.swift in Sources */,
+				A0000000000000000000000C /* VideoOverlay.swift in Sources */,
 				A00000000000000000000006 /* VideoTile.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -268,7 +280,7 @@
 			buildActionMask = 2147483647;
 			files = (
 				A00000000000000000000004 /* AppInfoTests.swift in Sources */,
-				A0000000000000000000000A /* CameraCatalogTests.swift in Sources */,
+				A0000000000000000000000A /* CameraTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

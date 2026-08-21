@@ -1,25 +1,53 @@
 import AppKit
+import SwiftData
 import SwiftUI
 
 struct MenuBarPanel: View {
+    @Environment(\.accessibilityReduceMotion) private var reduceMotion
+    @Query(sort: \Camera.sortIndex) private var cameras: [Camera]
     @State private var isVisible = false
+    @State private var showsSettings: Bool
 
-    private let cameras: [Camera]
     private let playbackEnabled: Bool
+    private let panelWidth: CGFloat = 420
+    private let panelMinHeight: CGFloat = 242
     private let columns = [
         GridItem(.flexible(), spacing: 4),
         GridItem(.flexible(), spacing: 4),
     ]
 
     init(
-        cameras: [Camera] = CameraCatalog.bundled,
-        playbackEnabled: Bool = true
+        playbackEnabled: Bool = true,
+        showsSettings: Bool = false
     ) {
-        self.cameras = cameras
         self.playbackEnabled = playbackEnabled
+        _showsSettings = State(initialValue: showsSettings)
     }
 
     var body: some View {
+        HStack(spacing: 0) {
+            cameraGrid
+                .frame(width: panelWidth)
+
+            SettingsSheet(onBack: { setShowsSettings(false) })
+                .frame(width: panelWidth)
+        }
+        .offset(x: showsSettings ? -panelWidth : 0)
+        .frame(width: panelWidth, alignment: .leading)
+        .frame(minHeight: panelMinHeight, alignment: .top)
+        .clipped()
+        .background {
+            PanelWindowObserver { isVisible = $0 }
+        }
+        .onAppear {
+            isVisible = true
+        }
+        .onDisappear {
+            isVisible = false
+        }
+    }
+
+    private var cameraGrid: some View {
         LazyVGrid(columns: columns, spacing: 4) {
             ForEach(cameras) { camera in
                 VideoTile(
@@ -30,15 +58,52 @@ struct MenuBarPanel: View {
             }
         }
         .padding(4)
-        .frame(width: 420)
-        .background {
-            PanelWindowObserver { isVisible = $0 }
+        .frame(maxWidth: .infinity, minHeight: panelMinHeight, maxHeight: .infinity, alignment: .top)
+        .overlay {
+            if cameras.isEmpty {
+                VStack(spacing: 10) {
+                    Image(AppInfo.menuBarIcon)
+                        .renderingMode(.template)
+                        .resizable()
+                        .scaledToFit()
+                        .frame(width: 36, height: 36)
+                        .foregroundStyle(.secondary)
+                        .accessibilityHidden(true)
+
+                    VStack(spacing: 4) {
+                        Text(AppInfo.name)
+                            .font(.headline)
+
+                        Text("Add a camera in Settings")
+                            .font(.subheadline)
+                            .foregroundStyle(.secondary)
+                    }
+                }
+                .multilineTextAlignment(.center)
+                .accessibilityElement(children: .combine)
+                .accessibilityIdentifier("empty-cameras")
+            }
         }
-        .onAppear {
-            isVisible = true
+        .overlay(alignment: .bottomTrailing) {
+            Button {
+                setShowsSettings(true)
+            } label: {
+                Image(systemName: "gearshape")
+            }
+            .buttonStyle(.glass)
+            .controlSize(.small)
+            .padding(12)
+            .accessibilityLabel("Settings")
+            .accessibilityIdentifier("settings-button")
         }
-        .onDisappear {
-            isVisible = false
+    }
+
+    private func setShowsSettings(_ value: Bool) {
+        let animation: Animation? = reduceMotion
+            ? nil
+            : .spring(response: 0.42, dampingFraction: 0.80)
+        withAnimation(animation) {
+            showsSettings = value
         }
     }
 }
@@ -135,12 +200,38 @@ private struct PanelWindowObserver: NSViewRepresentable {
     }
 }
 
+#Preview("Empty Light") {
+    MenuBarPanel(playbackEnabled: false)
+        .modelContainer(Persistence.preview(cameras: []))
+        .preferredColorScheme(.light)
+}
+
+#Preview("Empty Dark") {
+    MenuBarPanel(playbackEnabled: false)
+        .modelContainer(Persistence.preview(cameras: []))
+        .preferredColorScheme(.dark)
+}
+
 #Preview("Light") {
     MenuBarPanel(playbackEnabled: false)
+        .modelContainer(Persistence.preview())
         .preferredColorScheme(.light)
 }
 
 #Preview("Dark") {
     MenuBarPanel(playbackEnabled: false)
+        .modelContainer(Persistence.preview())
+        .preferredColorScheme(.dark)
+}
+
+#Preview("Settings Open Light") {
+    MenuBarPanel(playbackEnabled: false, showsSettings: true)
+        .modelContainer(Persistence.preview(cameras: []))
+        .preferredColorScheme(.light)
+}
+
+#Preview("Settings Open Dark") {
+    MenuBarPanel(playbackEnabled: false, showsSettings: true)
+        .modelContainer(Persistence.preview(cameras: []))
         .preferredColorScheme(.dark)
 }
