@@ -30,11 +30,11 @@ struct CameraTests {
         let incomplete = Camera(name: "", streamURLString: "https://")
         let ready = Camera(
             name: "Garten",
-            streamURLString: "https://192.168.178.119/flv?port=1935"
+            streamURLString: "https://192.0.2.10/flv?port=1935"
         )
 
         #expect(empty.playableStreamURL == nil)
         #expect(incomplete.playableStreamURL == nil)
-        #expect(ready.playableStreamURL?.host == "192.168.178.119")
+        #expect(ready.playableStreamURL?.host == "192.0.2.10")
     }
 }

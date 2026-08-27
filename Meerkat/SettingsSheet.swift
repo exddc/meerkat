@@ -8,6 +8,7 @@ struct SettingsSheet: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Camera.sortIndex) private var cameras: [Camera]
     @AppStorage(AppInfo.cameraLabelVisibilityKey) private var cameraLabelVisibility = CameraLabelVisibility.always
+    @State private var saveErrorMessage: String?
 
     var body: some View {
         VStack(spacing: 0) {
@@ -67,6 +68,21 @@ struct SettingsSheet: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(.background)
+        .alert(
+            "Could not save cameras",
+            isPresented: Binding(
+                get: { saveErrorMessage != nil },
+                set: { if !$0 { saveErrorMessage = nil } }
+            )
+        ) {
+            Button("OK", role: .cancel) {
+                saveErrorMessage = nil
+            }
+        } message: {
+            if let saveErrorMessage {
+                Text(saveErrorMessage)
+            }
+        }
     }
 
     private var headerBar: some View {
@@ -100,12 +116,20 @@ struct SettingsSheet: View {
                 sortIndex: (cameras.map(\.sortIndex).max() ?? -1) + 1
             )
         )
-        try? modelContext.save()
+        saveChanges()
     }
 
     private func remove(_ camera: Camera) {
         modelContext.delete(camera)
-        try? modelContext.save()
+        saveChanges()
+    }
+
+    private func saveChanges() {
+        do {
+            try modelContext.save()
+        } catch {
+            saveErrorMessage = error.localizedDescription
+        }
     }
 }
 
@@ -160,9 +184,9 @@ private struct CameraRow: View {
                         .frame(maxWidth: 202)
                         .accessibilityIdentifier("\(camera.cameraID.uuidString)-name")
                 }
-                
+
                 Divider()
-                
+
                 Button("Remove", role: .destructive, action: onRemove)
                     .accessibilityIdentifier("\(camera.cameraID.uuidString)-remove")
             }
