@@ -23,4 +23,9 @@ enum CameraGridLayout {
         let gridHeight = (padding * 2) + (tileHeight * rows) + (spacing * (rows - 1))
         return max(panelMinimumHeight, gridHeight)
     }
+
+    static func constrainedHeight(_ height: CGFloat, maximum: CGFloat?) -> CGFloat {
+        guard let maximum else { return height }
+        return min(height, maximum)
+    }
 }

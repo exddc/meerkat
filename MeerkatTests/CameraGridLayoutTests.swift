@@ -22,4 +22,11 @@ struct CameraGridLayoutTests {
         #expect(CameraGridLayout.panelHeight(for: 4) == CameraGridLayout.panelMinimumHeight)
         #expect(CameraGridLayout.panelHeight(for: 5) == 360.25)
     }
+
+    @Test
+    func constrainsPanelHeightToTheDisplay() {
+        #expect(CameraGridLayout.constrainedHeight(700, maximum: 500) == 500)
+        #expect(CameraGridLayout.constrainedHeight(360.25, maximum: 500) == 360.25)
+        #expect(CameraGridLayout.constrainedHeight(700, maximum: nil) == 700)
+    }
 }
