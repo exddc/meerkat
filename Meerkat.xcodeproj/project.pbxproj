@@ -22,6 +22,8 @@
 		A0000000000000000000000E /* Assets.xcassets in Resources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000001B /* Assets.xcassets */; };
 		A0000000000000000000000F /* CameraGridLayout.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000025 /* CameraGridLayout.swift */; };
 		A00000000000000000000010 /* CameraGridLayoutTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000026 /* CameraGridLayoutTests.swift */; };
+		A00000000000000000000029 /* VideoPlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000027 /* VideoPlayerView.swift */; };
+		A0000000000000000000002A /* CameraCertificateTrust.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000028 /* CameraCertificateTrust.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -52,6 +54,8 @@
 		A0000000000000000000001F /* Persistence.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = Persistence.swift; sourceTree = "<group>"; };
 		A00000000000000000000025 /* CameraGridLayout.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraGridLayout.swift; sourceTree = "<group>"; };
 		A00000000000000000000026 /* CameraGridLayoutTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraGridLayoutTests.swift; sourceTree = "<group>"; };
+		A00000000000000000000027 /* VideoPlayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoPlayerView.swift; sourceTree = "<group>"; };
+		A00000000000000000000028 /* CameraCertificateTrust.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraCertificateTrust.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -96,12 +100,14 @@
 				A00000000000000000000011 /* AppInfo.swift */,
 				A0000000000000000000001B /* Assets.xcassets */,
 				A0000000000000000000001A /* Camera.swift */,
+				A00000000000000000000028 /* CameraCertificateTrust.swift */,
 				A00000000000000000000025 /* CameraGridLayout.swift */,
 				A00000000000000000000012 /* MeerkatApp.swift */,
 				A00000000000000000000013 /* MenuBarPanel.swift */,
 				A0000000000000000000001F /* Persistence.swift */,
 				A0000000000000000000001D /* SettingsSheet.swift */,
 				A0000000000000000000001E /* VideoOverlay.swift */,
+				A00000000000000000000027 /* VideoPlayerView.swift */,
 				A00000000000000000000019 /* VideoTile.swift */,
 			);
 			path = Meerkat;
@@ -272,12 +278,14 @@
 			files = (
 				A00000000000000000000001 /* AppInfo.swift in Sources */,
 				A00000000000000000000008 /* Camera.swift in Sources */,
+				A0000000000000000000002A /* CameraCertificateTrust.swift in Sources */,
 				A0000000000000000000000F /* CameraGridLayout.swift in Sources */,
 				A00000000000000000000002 /* MeerkatApp.swift in Sources */,
 				A0000000000000000000000D /* Persistence.swift in Sources */,
 				A00000000000000000000003 /* MenuBarPanel.swift in Sources */,
 				A0000000000000000000000B /* SettingsSheet.swift in Sources */,
 				A0000000000000000000000C /* VideoOverlay.swift in Sources */,
+				A00000000000000000000029 /* VideoPlayerView.swift in Sources */,
 				A00000000000000000000006 /* VideoTile.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
