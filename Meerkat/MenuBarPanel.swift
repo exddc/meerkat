@@ -6,15 +6,33 @@ struct MenuBarPanel: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Query(sort: \Camera.sortIndex) private var cameras: [Camera]
     @State private var isVisible = false
+    @State private var maximumContentHeight: CGFloat?
     @State private var showsSettings: Bool
 
     private let playbackEnabled: Bool
-    private let panelWidth: CGFloat = 420
-    private let panelMinHeight: CGFloat = 242
-    private let columns = [
-        GridItem(.flexible(), spacing: 4),
-        GridItem(.flexible(), spacing: 4),
-    ]
+    private let panelWidth = CameraGridLayout.panelWidth
+    private let panelMinHeight = CameraGridLayout.panelMinimumHeight
+    private var columns: [GridItem] {
+        Array(
+            repeating: GridItem(.flexible(), spacing: 4),
+            count: CameraGridLayout.columnCount(for: cameras.count)
+        )
+    }
+
+    private var gridPanelHeight: CGFloat {
+        CameraGridLayout.panelHeight(for: cameras.count)
+    }
+
+    private var desiredContentHeight: CGFloat {
+        showsSettings ? CameraGridLayout.settingsPanelHeight : gridPanelHeight
+    }
+
+    private var contentHeight: CGFloat {
+        CameraGridLayout.constrainedHeight(
+            desiredContentHeight,
+            maximum: maximumContentHeight
+        )
+    }
 
     init(
         playbackEnabled: Bool = true,
@@ -33,11 +51,17 @@ struct MenuBarPanel: View {
                 .frame(width: panelWidth)
         }
         .offset(x: showsSettings ? -panelWidth : 0)
-        .frame(width: panelWidth, alignment: .leading)
-        .frame(minHeight: panelMinHeight, alignment: .top)
+        .frame(width: panelWidth, height: contentHeight, alignment: .topLeading)
         .clipped()
         .background {
-            PanelWindowObserver { isVisible = $0 }
+            PanelWindowObserver(
+                contentSize: CGSize(width: panelWidth, height: contentHeight),
+                onMaximumContentHeightChange: { maximumHeight in
+                    guard maximumContentHeight != maximumHeight else { return }
+                    maximumContentHeight = maximumHeight
+                },
+                onVisibilityChange: { isVisible = $0 }
+            )
         }
         .onAppear {
             isVisible = true
@@ -48,17 +72,20 @@ struct MenuBarPanel: View {
     }
 
     private var cameraGrid: some View {
-        LazyVGrid(columns: columns, spacing: 4) {
-            ForEach(cameras) { camera in
-                VideoTile(
-                    camera: camera,
-                    isActive: isVisible,
-                    playbackEnabled: playbackEnabled
-                )
+        ScrollView {
+            LazyVGrid(columns: columns, spacing: 4) {
+                ForEach(cameras) { camera in
+                    VideoTile(
+                        camera: camera,
+                        isActive: isVisible,
+                        playbackEnabled: playbackEnabled
+                    )
+                }
             }
+            .padding(4)
         }
-        .padding(4)
-        .frame(maxWidth: .infinity, minHeight: panelMinHeight, maxHeight: .infinity, alignment: .top)
+        .scrollIndicators(.automatic)
+        .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .overlay {
             if cameras.isEmpty {
                 VStack(spacing: 10) {
@@ -109,6 +136,8 @@ struct MenuBarPanel: View {
 }
 
 private struct PanelWindowObserver: NSViewRepresentable {
+    var contentSize: CGSize
+    var onMaximumContentHeightChange: (CGFloat?) -> Void
     var onVisibilityChange: (Bool) -> Void
 
     func makeNSView(context: Context) -> NSView {
@@ -116,16 +145,28 @@ private struct PanelWindowObserver: NSViewRepresentable {
         view.onWindowChange = { [coordinator = context.coordinator] window in
             coordinator.observe(window)
         }
-        context.coordinator.onVisibilityChange = onVisibilityChange
+        context.coordinator.update(
+            contentSize: contentSize,
+            onMaximumContentHeightChange: onMaximumContentHeightChange,
+            onVisibilityChange: onVisibilityChange
+        )
         return view
     }
 
     func updateNSView(_ nsView: NSView, context: Context) {
-        context.coordinator.onVisibilityChange = onVisibilityChange
+        context.coordinator.update(
+            contentSize: contentSize,
+            onMaximumContentHeightChange: onMaximumContentHeightChange,
+            onVisibilityChange: onVisibilityChange
+        )
     }
 
     func makeCoordinator() -> Coordinator {
-        Coordinator(onVisibilityChange: onVisibilityChange)
+        Coordinator(
+            contentSize: contentSize,
+            onMaximumContentHeightChange: onMaximumContentHeightChange,
+            onVisibilityChange: onVisibilityChange
+        )
     }
 
     static func dismantleNSView(_ nsView: NSView, coordinator: Coordinator) {
@@ -135,12 +176,32 @@ private struct PanelWindowObserver: NSViewRepresentable {
     @MainActor
     final class Coordinator {
         var onVisibilityChange: (Bool) -> Void
+        var onMaximumContentHeightChange: (CGFloat?) -> Void
+        private var contentSize: CGSize
         private var observations: [NSObjectProtocol] = []
         private weak var window: NSWindow?
         private var lastVisible: Bool?
 
-        init(onVisibilityChange: @escaping (Bool) -> Void) {
+        init(
+            contentSize: CGSize,
+            onMaximumContentHeightChange: @escaping (CGFloat?) -> Void,
+            onVisibilityChange: @escaping (Bool) -> Void
+        ) {
+            self.contentSize = contentSize
+            self.onMaximumContentHeightChange = onMaximumContentHeightChange
             self.onVisibilityChange = onVisibilityChange
+        }
+
+        func update(
+            contentSize: CGSize,
+            onMaximumContentHeightChange: @escaping (CGFloat?) -> Void,
+            onVisibilityChange: @escaping (Bool) -> Void
+        ) {
+            self.contentSize = contentSize
+            self.onMaximumContentHeightChange = onMaximumContentHeightChange
+            self.onVisibilityChange = onVisibilityChange
+            publishMaximumContentHeight()
+            resizeWindow()
         }
 
         func observe(_ window: NSWindow?) {
@@ -155,10 +216,14 @@ private struct PanelWindowObserver: NSViewRepresentable {
                 return
             }
 
+            publishMaximumContentHeight()
+            resizeWindow()
+
             let names: [Notification.Name] = [
                 NSWindow.didBecomeKeyNotification,
                 NSWindow.didResignKeyNotification,
                 NSWindow.didChangeOcclusionStateNotification,
+                NSWindow.didChangeScreenNotification,
             ]
             observations = names.map { name in
                 NotificationCenter.default.addObserver(
@@ -168,6 +233,7 @@ private struct PanelWindowObserver: NSViewRepresentable {
                 ) { [weak self] _ in
                     Task { @MainActor [weak self] in
                         self?.publishVisibility()
+                        self?.publishMaximumContentHeight()
                     }
                 }
             }
@@ -181,6 +247,24 @@ private struct PanelWindowObserver: NSViewRepresentable {
             }
 
             publish(window.isVisible && window.occlusionState.contains(.visible))
+        }
+
+        private func resizeWindow() {
+            guard let window, window.contentView?.bounds.size != contentSize else { return }
+            let topLeft = NSPoint(x: window.frame.minX, y: window.frame.maxY)
+            window.setContentSize(contentSize)
+            window.setFrameTopLeftPoint(topLeft)
+        }
+
+        private func publishMaximumContentHeight() {
+            guard let window, let screen = window.screen else {
+                onMaximumContentHeightChange(nil)
+                return
+            }
+
+            let chromeHeight = window.frame.height - window.contentLayoutRect.height
+            let maximumHeight = window.frame.maxY - screen.visibleFrame.minY - chromeHeight
+            onMaximumContentHeightChange(max(maximumHeight, CameraGridLayout.panelMinimumHeight))
         }
 
         private func publish(_ visible: Bool) {
@@ -222,6 +306,25 @@ private struct PanelWindowObserver: NSViewRepresentable {
     MenuBarPanel(playbackEnabled: false)
         .modelContainer(Persistence.preview())
         .preferredColorScheme(.dark)
+}
+
+#Preview("Two Cameras") {
+    MenuBarPanel(playbackEnabled: false)
+        .modelContainer(Persistence.preview(cameras: [
+            ("Camera 1", "https://camera.test/1"),
+            ("Camera 2", "https://camera.test/2"),
+        ]))
+}
+
+#Preview("Five Cameras") {
+    MenuBarPanel(playbackEnabled: false)
+        .modelContainer(Persistence.preview(cameras: [
+            ("Camera 1", "https://camera.test/1"),
+            ("Camera 2", "https://camera.test/2"),
+            ("Camera 3", "https://camera.test/3"),
+            ("Camera 4", "https://camera.test/4"),
+            ("Camera 5", "https://camera.test/5"),
+        ]))
 }
 
 #Preview("Settings Open Light") {
