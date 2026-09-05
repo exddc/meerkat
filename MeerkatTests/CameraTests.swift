@@ -37,4 +37,12 @@ struct CameraTests {
         #expect(incomplete.playableStreamURL == nil)
         #expect(ready.playableStreamURL?.host == "192.0.2.10")
     }
+
+    @Test
+    func rejectsNonHTTPSPlayback() {
+        for url in ["http://192.168.1.2/flv", "rtsp://192.168.1.2/live", "file:///tmp/stream.flv"] {
+            #expect(Camera(name: "", streamURLString: url).playableStreamURL == nil)
+        }
+    }
+
 }

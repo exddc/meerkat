@@ -13,7 +13,6 @@
 		A00000000000000000000004 /* AppInfoTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000014 /* AppInfoTests.swift */; };
 		A00000000000000000000005 /* MenuBarInteractionTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000017 /* MenuBarInteractionTests.swift */; };
 		A00000000000000000000006 /* VideoTile.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000019 /* VideoTile.swift */; };
-		A00000000000000000000007 /* VLCKitSPM in Frameworks */ = {isa = PBXBuildFile; productRef = A00000000000000000000090 /* VLCKitSPM */; };
 		A00000000000000000000008 /* Camera.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000001A /* Camera.swift */; };
 		A0000000000000000000000A /* CameraTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000001C /* CameraTests.swift */; };
 		A0000000000000000000000B /* SettingsSheet.swift in Sources */ = {isa = PBXBuildFile; fileRef = A0000000000000000000001D /* SettingsSheet.swift */; };
@@ -24,6 +23,10 @@
 		A00000000000000000000010 /* CameraGridLayoutTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000026 /* CameraGridLayoutTests.swift */; };
 		A00000000000000000000029 /* VideoPlayerView.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000027 /* VideoPlayerView.swift */; };
 		A0000000000000000000002A /* CameraCertificateTrust.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000028 /* CameraCertificateTrust.swift */; };
+		B0000000000000000000000B /* FLVParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000001; };
+		B0000000000000000000000C /* AVCSampleBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000002; };
+		B0000000000000000000000D /* HTTPFLVPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000003; };
+		B00000000000000000000022 = {isa = PBXBuildFile; fileRef = B00000000000000000000021; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -56,6 +59,10 @@
 		A00000000000000000000026 /* CameraGridLayoutTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraGridLayoutTests.swift; sourceTree = "<group>"; };
 		A00000000000000000000027 /* VideoPlayerView.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = VideoPlayerView.swift; sourceTree = "<group>"; };
 		A00000000000000000000028 /* CameraCertificateTrust.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraCertificateTrust.swift; sourceTree = "<group>"; };
+		B00000000000000000000001 /* FLVParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FLVParser.swift; sourceTree = "<group>"; };
+		B00000000000000000000002 /* AVCSampleBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AVCSampleBuilder.swift; sourceTree = "<group>"; };
+		B00000000000000000000003 /* HTTPFLVPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HTTPFLVPlayer.swift; sourceTree = "<group>"; };
+		B00000000000000000000021 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FLVPlaybackTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -63,7 +70,6 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
-				A00000000000000000000007 /* VLCKitSPM in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -101,6 +107,9 @@
 				A0000000000000000000001B /* Assets.xcassets */,
 				A0000000000000000000001A /* Camera.swift */,
 				A00000000000000000000028 /* CameraCertificateTrust.swift */,
+				B00000000000000000000003 /* HTTPFLVPlayer.swift */,
+				B00000000000000000000002 /* AVCSampleBuilder.swift */,
+				B00000000000000000000001 /* FLVParser.swift */,
 				A00000000000000000000025 /* CameraGridLayout.swift */,
 				A00000000000000000000012 /* MeerkatApp.swift */,
 				A00000000000000000000013 /* MenuBarPanel.swift */,
@@ -118,6 +127,7 @@
 			children = (
 				A00000000000000000000014 /* AppInfoTests.swift */,
 				A0000000000000000000001C /* CameraTests.swift */,
+				B00000000000000000000021 /* FLVPlaybackTests.swift */,
 				A00000000000000000000026 /* CameraGridLayoutTests.swift */,
 			);
 			path = MeerkatTests;
@@ -158,7 +168,6 @@
 			);
 			name = Meerkat;
 			packageProductDependencies = (
-				A00000000000000000000090 /* VLCKitSPM */,
 			);
 			productName = Meerkat;
 			productReference = A00000000000000000000015 /* Meerkat.app */;
@@ -233,7 +242,6 @@
 			);
 			mainGroup = A00000000000000000000050;
 			packageReferences = (
-				A00000000000000000000080 /* XCRemoteSwiftPackageReference "vlckit-spm" */,
 			);
 			productRefGroup = A00000000000000000000053 /* Products */;
 			projectDirPath = "";
@@ -279,6 +287,9 @@
 				A00000000000000000000001 /* AppInfo.swift in Sources */,
 				A00000000000000000000008 /* Camera.swift in Sources */,
 				A0000000000000000000002A /* CameraCertificateTrust.swift in Sources */,
+				B0000000000000000000000D /* HTTPFLVPlayer.swift in Sources */,
+				B0000000000000000000000C /* AVCSampleBuilder.swift in Sources */,
+				B0000000000000000000000B /* FLVParser.swift in Sources */,
 				A0000000000000000000000F /* CameraGridLayout.swift in Sources */,
 				A00000000000000000000002 /* MeerkatApp.swift in Sources */,
 				A0000000000000000000000D /* Persistence.swift in Sources */,
@@ -296,6 +307,7 @@
 			files = (
 				A00000000000000000000004 /* AppInfoTests.swift in Sources */,
 				A0000000000000000000000A /* CameraTests.swift in Sources */,
+				B00000000000000000000022 /* FLVPlaybackTests.swift in Sources */,
 				A00000000000000000000010 /* CameraGridLayoutTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
@@ -495,24 +507,7 @@
 		};
 /* End XCConfigurationList section */
 
-/* Begin XCRemoteSwiftPackageReference section */
-		A00000000000000000000080 /* XCRemoteSwiftPackageReference "vlckit-spm" */ = {
-			isa = XCRemoteSwiftPackageReference;
-			repositoryURL = "https://github.com/tylerjonesio/vlckit-spm.git";
-			requirement = {
-				kind = exactVersion;
-				version = 3.6.0;
-			};
-		};
-/* End XCRemoteSwiftPackageReference section */
 
-/* Begin XCSwiftPackageProductDependency section */
-		A00000000000000000000090 /* VLCKitSPM */ = {
-			isa = XCSwiftPackageProductDependency;
-			package = A00000000000000000000080 /* XCRemoteSwiftPackageReference "vlckit-spm" */;
-			productName = VLCKitSPM;
-		};
-/* End XCSwiftPackageProductDependency section */
 	};
 	rootObject = A00000000000000000000020 /* Project object */;
 }

@@ -5,6 +5,7 @@ final class MenuBarInteractionTests: XCTestCase {
     func testPanelOpensFromMenuBar() {
         let app = XCUIApplication()
         app.launch()
+        defer { app.terminate() }
 
         let statusItem = app.menuBars.statusItems["Meerkat"]
         XCTAssertTrue(statusItem.waitForExistence(timeout: 5))
@@ -17,5 +18,6 @@ final class MenuBarInteractionTests: XCTestCase {
         attachment.name = "Meerkat panel"
         attachment.lifetime = .keepAlways
         add(attachment)
+        statusItem.click()
     }
 }
