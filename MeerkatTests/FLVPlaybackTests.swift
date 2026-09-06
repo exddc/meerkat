@@ -156,8 +156,9 @@ private final class FixtureStreamProtocol: URLProtocol, @unchecked Sendable {
     static let counts = Mutex<[String: (starts: Int, stops: Int)]>([:])
     static let fixture = Data(base64Encoded: "RkxWAQEAAAAJAAAAABIAALcAAAAAAAAAAgAKb25NZXRhRGF0YQgAAAAIAAhkdXJhdGlvbgA/8AAAAAAAAAAFd2lkdGgAQIQAAAAAAAAABmhlaWdodABAdoAAAAAAAAANdmlkZW9kYXRhcmF0ZQAAAAAAAAAAAAAJZnJhbWVyYXRlAEAkAAAAAAAAAAx2aWRlb2NvZGVjaWQAQBwAAAAAAAAAB2VuY29kZXICAAxMYXZmNjMuMS4xMDEACGZpbGVzaXplAECeWAAAAAAAAAAJAAAAwgkAAC4AAAAAAAAAFwAAAAABQsAW/+EAGWdCwBbZAKAv+XARAAADAAEAAAMAFA8WLkgBAAVoy4PLIAAAADkJAAVLAAAAAAAAABcBAAAAAAACcAYF//9s3EXpvebZSLeWLNgg2SPu73gyNjQgLSBjb3JlIDE2NSByMzIyMiBiMzU2MDVhIC0gSC4yNjQvTVBFRy00IEFWQyBjb2RlYyAtIENvcHlsZWZ0IDIwMDMtMjAyNSAtIGh0dHA6Ly93d3cudmlkZW9sYW4ub3JnL3gyNjQuaHRtbCAtIG9wdGlvbnM6IGNhYmFjPTAgcmVmPTMgZGVibG9jaz0xOjA6MCBhbmFseXNlPTB4MToweDExMSBtZT1oZXggc3VibWU9NyBwc3k9MSBwc3lfcmQ9MS4wMDowLjAwIG1peGVkX3JlZj0xIG1lX3JhbmdlPTE2IGNocm9tYV9tZT0xIHRyZWxsaXM9MSA4eDhkY3Q9MCBjcW09MCBkZWFkem9uZT0yMSwxMSBmYXN0X3Bza2lwPTEgY2hyb21hX3FwX29mZnNldD0tMiB0aHJlYWRzPTExIGxvb2thaGVhZF90aHJlYWRzPTEgc2xpY2VkX3RocmVhZHM9MCBucj0wIGRlY2ltYXRlPTEgaW50ZXJsYWNlZD0wIGJsdXJheV9jb21wYXQ9MCBjb25zdHJhaW5lZF9pbnRyYT0wIGJmcmFtZXM9MCB3ZWlnaHRwPTAga2V5aW50PTEwIGtleWludF9taW49MSBzY2VuZWN1dD00MCBpbnRyYV9yZWZyZXNoPTAgcmNfbG9va2FoZWFkPTEwIHJjPWNyZiBtYnRyZWU9MSBjcmY9MjMuMCBxY29tcD0wLjYwIHFwbWluPTAgcXBtYXg9NjkgcXBzdGVwPTQgaXBfcmF0aW89MS40MCBhcT0xOjEuMDAAgAAAAs5liIQP8RigAC0jHAAFXKOAAIYMnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJyddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddeAAAFVgkAABAAAGQAAAAAJwEAAAAAAAAHQZo4H+AOZgAAABsJAAARAADIAAAAACcBAAAAAAAACEGaVAf4A5mAAAAAHAkAABAAASwAAAAAJwEAAAAAAAAHQZpgP8AczAAAABsJAAAQAAGQAAAAACcBAAAAAAAAB0GagD/AHMwAAAAbCQAAEAAB9AAAAAAnAQAAAAAAAAdBmqA/wBzMAAAAGwkAABAAAlgAAAAAJwEAAAAAAAAHQZrAP8AczAAAABsJAAAQAAK8AAAAACcBAAAAAAAAB0Ga4D/AHMwAAAAbCQAAEAADIAAAAAAnAQAAAAAAAAdBmwA7wBzMAAAAGwkAABAAA4QAAAAAJwEAAAAAAAAHQZsgN8AczAAAABsJAAAFAAOEAAAAABcCAAAAAAAAEA==")!
 
-    static let hevcFixture = Data([0x46, 0x4c, 0x56, 1, 1, 0, 0, 0, 9, 0, 0, 0, 0,
-                                   9, 0, 0, 5, 0, 0, 0, 0, 0, 0, 0, 0x1c, 1, 0, 0, 0, 0, 0, 0, 16])
+    static let header = Data([0x46, 0x4c, 0x56, 1, 1, 0, 0, 0, 9, 0, 0, 0, 0])
+    static let hevcFixture = header + Data([9, 0, 0, 5, 0, 0, 0, 0, 0, 0, 0, 0x1c, 1, 0, 0, 0, 0, 0, 0, 16])
+    static let corruptFixture = header + Data([9, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1])
 
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
@@ -172,16 +173,35 @@ private final class FixtureStreamProtocol: URLProtocol, @unchecked Sendable {
             client?.urlProtocol(self, didReceive: HTTPURLResponse(url: url, statusCode: url.path == "/unavailable" ? 503 : 401,
                 httpVersion: "HTTP/1.1", headerFields: nil)!, cacheStoragePolicy: .notAllowed)
             client?.urlProtocolDidFinishLoading(self)
+        case "/redirect":
+            let target = URL(string: "https://fixture.test/redirect-target")!
+            let response = HTTPURLResponse(url: url, statusCode: 302, httpVersion: "HTTP/1.1",
+                headerFields: ["Location": target.absoluteString])!
+            client?.urlProtocol(self, wasRedirectedTo: URLRequest(url: target), redirectResponse: response)
+            client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+            client?.urlProtocolDidFinishLoading(self)
+        case "/corrupt":
+            send(Self.corruptFixture)
+        case "/stall":
+            send(Self.header, finish: false)
         default:
-            client?.urlProtocol(self, didReceive: HTTPURLResponse(url: url, statusCode: 200,
-                httpVersion: "HTTP/1.1", headerFields: ["Content-Type": "video/x-flv"])!, cacheStoragePolicy: .notAllowed)
-            client?.urlProtocol(self, didLoad: url.path == "/hevc" ? Self.hevcFixture : Self.fixture)
+            send(url.path == "/hevc" ? Self.hevcFixture : Self.fixture)
         }
     }
 
     override func stopLoading() {
         let path = request.url!.path
         Self.counts.withLock { $0[path, default: (0, 0)].stops += 1 }
+    }
+
+    private func send(_ data: Data, finish: Bool = false) {
+        let url = request.url!
+        client?.urlProtocol(self, didReceive: HTTPURLResponse(url: url, statusCode: 200,
+            httpVersion: "HTTP/1.1", headerFields: ["Content-Type": "video/x-flv"])!, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: data)
+        if finish {
+            client?.urlProtocolDidFinishLoading(self)
+        }
     }
 }
 
@@ -249,6 +269,44 @@ struct HTTPFLVPlayerTests {
         #expect(FixtureStreamProtocol.counts.withLock { $0["/hevc"]?.starts } == 1)
     }
 
+    @Test func rejectsHTTPRedirects() async throws {
+        let states = try await states(forPath: "/redirect", timeout: .seconds(1))
+        #expect(states.contains(.unsupported))
+        #expect(!states.contains(.reconnecting))
+        #expect(FixtureStreamProtocol.counts.withLock { $0["/redirect"]?.starts } == 1)
+        #expect(FixtureStreamProtocol.counts.withLock { $0["/redirect-target"]?.starts } == nil)
+    }
+
+    @Test func reconnectsAfterParserError() async throws {
+        let states = try await states(forPath: "/corrupt", timeout: .seconds(1))
+        #expect(states.contains(.reconnecting))
+        #expect(!states.contains(.unsupported))
+    }
+
+    @Test func reconnectsWhenPendingBytesExceedCap() async throws {
+        #expect(HTTPFLVPlayer.maximumPendingBytes == 4 * 1024 * 1024)
+        var states = [PlaybackState]()
+        let player = try player(forPath: "/oversize") { states.append($0) }
+        player.maximumPendingBytes = 1
+        player.start()
+        defer { player.stop() }
+        await waitUntil { states.contains(.reconnecting) }
+        #expect(states.contains(.reconnecting))
+        #expect(!states.contains(.unsupported))
+    }
+
+    @Test func reconnectsAfterWatchdogStall() async throws {
+        #expect(HTTPFLVPlayer.stallTimeout == 10)
+        var states = [PlaybackState]()
+        let player = try player(forPath: "/stall") { states.append($0) }
+        player.stallTimeout = 0.2
+        player.start()
+        defer { player.stop() }
+        await waitUntil(timeout: .seconds(2)) { states.contains(.reconnecting) }
+        #expect(states.contains(.reconnecting))
+        #expect(!states.contains(.unsupported))
+    }
+
     private func states(forPath path: String) async throws -> [PlaybackState] {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [FixtureStreamProtocol.self]
@@ -259,5 +317,31 @@ struct HTTPFLVPlayerTests {
         try await Task.sleep(for: .milliseconds(2400))
         player.stop()
         return states
+    }
+
+    private func states(forPath path: String, timeout: Duration) async throws -> [PlaybackState] {
+        var states = [PlaybackState]()
+        let player = try player(forPath: path) { states.append($0) }
+        player.start()
+        defer { player.stop() }
+        await waitUntil(timeout: timeout) { !states.isEmpty }
+        return states
+    }
+
+    private func player(forPath path: String, onStateChange: @escaping (PlaybackState) -> Void) throws -> HTTPFLVPlayer {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [FixtureStreamProtocol.self]
+        return try HTTPFLVPlayer(url: URL(string: "https://fixture.test\(path)")!,
+            displayLayer: AVSampleBufferDisplayLayer(), configuration: configuration, onStateChange: onStateChange)
+    }
+}
+
+@MainActor
+private func waitUntil(timeout: Duration = .seconds(2), _ condition: @MainActor () -> Bool) async {
+    let clock = ContinuousClock()
+    let deadline = clock.now + timeout
+    while clock.now < deadline {
+        if condition() { return }
+        try? await Task.sleep(for: .milliseconds(10))
     }
 }
