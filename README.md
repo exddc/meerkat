@@ -15,7 +15,7 @@ https://<ip>/flv?port=1935&app=bcs&stream=channel0_sub.bcs&user=<user>&password=
 Add cameras in Settings.
 
 - Use HTTPS. An HTTP request redirects to `https://<ip>/` and drops the `/flv` path.
-- Reolink cameras present a self-signed TLS certificate. The player accepts it only for the configured `/flv` endpoint on a private or link-local IP address. Public hosts use normal certificate validation. Use the camera’s LAN IP for self-signed certificates.
+- Reolink cameras present a self-signed TLS certificate. The player accepts it only for the configured `/flv` endpoint on a private, link-local, or Tailscale (`100.64.0.0/10`) IP address. Public hosts use normal certificate validation. Use the camera’s LAN or Tailscale IP for self-signed certificates.
 - Do not percent-encode special characters in the password. A `!` sent as `%21` makes the camera drop the stream.
 
 ## Playback

@@ -101,11 +101,11 @@ struct FLVPlaybackTests {
     }
 
     @Test func acceptsOnlyConfiguredPrivateCameraCertificate() {
-        for host in ["10.0.0.2", "172.16.0.2", "192.168.1.2", "169.254.1.2", "[fd00::1]"] {
+        for host in ["10.0.0.2", "172.16.0.2", "192.168.1.2", "169.254.1.2", "100.64.0.1", "[fd00::1]"] {
             let url = URL(string: "https://\(host)/flv")!
             #expect(CameraCertificateTrust.allows(url: url, host: url.host!))
         }
-        for host in ["8.8.8.8", "172.32.0.1", "127.0.0.1", "camera.example", "[::1]"] {
+        for host in ["8.8.8.8", "172.32.0.1", "127.0.0.1", "100.63.0.1", "100.128.0.1", "camera.example", "[::1]"] {
             let url = URL(string: "https://\(host)/flv")!
             #expect(!CameraCertificateTrust.allows(url: url, host: url.host!))
         }
