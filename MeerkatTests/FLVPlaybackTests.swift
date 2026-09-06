@@ -116,13 +116,39 @@ struct FLVPlaybackTests {
     @Test func reanchorsClockOutsideTolerance() {
         var clock = PlaybackClock()
         let ms = { (value: Int64) in CMTime(value: value, timescale: 1000) }
-        #expect(clock.anchor(for: ms(1000), now: ms(0)) == ms(700))
-        #expect(clock.anchor(for: ms(1500), now: ms(1000)) == nil)
-        #expect(clock.anchor(for: ms(950), now: ms(1000)) == nil)
-        #expect(clock.anchor(for: ms(3000), now: ms(1000)) == ms(2700))
-        #expect(clock.anchor(for: ms(800), now: ms(1000)) == ms(500))
+        #expect(clock.anchor(decode: ms(1000), now: ms(0)) == ms(700))
+        #expect(clock.anchor(decode: ms(1500), now: ms(1000)) == nil)
+        #expect(clock.anchor(decode: ms(950), now: ms(1000)) == nil)
+        #expect(clock.anchor(decode: ms(3000), now: ms(1000)) == ms(2700))
+        #expect(clock.anchor(decode: ms(800), now: ms(1000)) == ms(500))
         clock.reset()
-        #expect(clock.anchor(for: ms(1200), now: ms(1000)) == ms(900))
+        #expect(clock.anchor(decode: ms(1200), now: ms(1000)) == ms(900))
+    }
+
+    @Test func reorderedFramesDoNotRewindClock() throws {
+        var builder = AVCSampleBuilder()
+        _ = try builder.sample(for: sequence())
+        let nal = Data([0, 0, 0, 2, 0x65, 0x88])
+        var clock = PlaybackClock()
+        var now = CMTime(value: 0, timescale: 1000)
+        var anchors = 0
+        var previousPresentation: CMTime?
+        var sawReorder = false
+        for (index, composition) in [UInt32(500), 0, 500, 0, 500, 0].enumerated() {
+            let frame = FLVTag(type: 9, timestamp: UInt32(index) * 33,
+                payload: Data([0x17, 1, UInt8(composition >> 16), UInt8((composition >> 8) & 255), UInt8(composition & 255)]) + nal)
+            let sample = try #require(try builder.sample(for: frame))
+            let presentation = CMSampleBufferGetPresentationTimeStamp(sample)
+            if let previousPresentation, presentation < previousPresentation { sawReorder = true }
+            previousPresentation = presentation
+            if let anchor = clock.anchor(decode: CMSampleBufferGetDecodeTimeStamp(sample), now: now) {
+                now = anchor
+                anchors += 1
+            }
+            now = now + CMTime(value: 33, timescale: 1000)
+        }
+        #expect(sawReorder)
+        #expect(anchors == 1)
     }
 }
 
@@ -142,8 +168,8 @@ private final class FixtureStreamProtocol: URLProtocol, @unchecked Sendable {
         switch url.path {
         case "/failure":
             client?.urlProtocol(self, didFailWithError: URLError(.cannotConnectToHost))
-        case "/unauthorized":
-            client?.urlProtocol(self, didReceive: HTTPURLResponse(url: url, statusCode: 401,
+        case "/unauthorized", "/unavailable":
+            client?.urlProtocol(self, didReceive: HTTPURLResponse(url: url, statusCode: url.path == "/unavailable" ? 503 : 401,
                 httpVersion: "HTTP/1.1", headerFields: nil)!, cacheStoragePolicy: .notAllowed)
             client?.urlProtocolDidFinishLoading(self)
         default:
@@ -207,6 +233,13 @@ struct HTTPFLVPlayerTests {
         #expect(states.contains(.unauthorized))
         #expect(!states.contains(.reconnecting))
         #expect(FixtureStreamProtocol.counts.withLock { $0["/unauthorized"]?.starts } == 1)
+    }
+
+    @Test func retriesTransientHTTPStatusQuickly() async throws {
+        let states = try await states(forPath: "/unavailable")
+        #expect(states.contains(.reconnecting))
+        #expect(!states.contains(.unsupported))
+        #expect(FixtureStreamProtocol.counts.withLock { $0["/unavailable"]?.starts } == 2)
     }
 
     @Test func reportsUnsupportedCodecAndBacksOff() async throws {

@@ -7,11 +7,11 @@ struct PlaybackClock {
 
     private var isRunning = false
 
-    mutating func anchor(for presentation: CMTime, now: CMTime) -> CMTime? {
-        let lead = presentation - now
+    mutating func anchor(decode: CMTime, now: CMTime) -> CMTime? {
+        let lead = decode - now
         guard !isRunning || lead < Self.minimumLead || lead > Self.maximumLead else { return nil }
         isRunning = true
-        return presentation - Self.targetBuffer
+        return decode - Self.targetBuffer
     }
 
     mutating func reset() {

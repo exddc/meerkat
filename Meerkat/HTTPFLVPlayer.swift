@@ -150,8 +150,8 @@ final class HTTPFLVPlayer: NSObject, URLSessionDataDelegate {
     }
 
     private func synchronizeClock(with sample: CMSampleBuffer) {
-        let presentation = CMSampleBufferGetPresentationTimeStamp(sample)
-        guard let time = clock.anchor(for: presentation, now: CMTimebaseGetTime(timebase)) else { return }
+        let decode = CMSampleBufferGetDecodeTimeStamp(sample)
+        guard let time = clock.anchor(decode: decode, now: CMTimebaseGetTime(timebase)) else { return }
         CMTimebaseSetTime(timebase, time: time)
         CMTimebaseSetRate(timebase, rate: 1)
     }
@@ -196,6 +196,9 @@ final class HTTPFLVPlayer: NSObject, URLSessionDataDelegate {
             case 401, 403:
                 completionHandler(.cancel)
                 fail(.unauthorized)
+            case 429, 500...:
+                completionHandler(.cancel)
+                fail(.reconnecting)
             default:
                 completionHandler(.cancel)
                 fail(.unsupported)
