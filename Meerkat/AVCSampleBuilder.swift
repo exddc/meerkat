@@ -9,10 +9,10 @@ struct AVCSampleBuilder {
     private var timestampEpoch: Int64 = 0
 
     mutating func sample(for tag: FLVTag) throws -> CMSampleBuffer? {
-        guard tag.type == 9 else { return nil }
+        guard tag.type == FLVTag.video else { return nil }
         let data = tag.payload
         guard data.count >= 5 else { throw FLVError.invalidAVC }
-        guard data[0] & 15 == 7 else { throw FLVError.unsupportedCodec }
+        guard data[0] & 15 == FLVTag.avcCodec else { throw FLVError.unsupportedCodec }
         switch data[1] {
         case 0:
             try configure(Data(data.dropFirst(5)))

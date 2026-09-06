@@ -5,6 +5,9 @@ enum FLVError: Error {
 }
 
 struct FLVTag {
+    static let video: UInt8 = 9
+    static let avcCodec: UInt8 = 7
+
     let type: UInt8
     let timestamp: UInt32
     let payload: Data
@@ -42,8 +45,8 @@ struct FLVParser {
                 throw FLVError.invalidTag
             }
             let timestamp = bytes.integer(at: offset + 4, count: 3) | UInt32(bytes[offset + 7]) << 24
-            if bytes[offset] == 9 {
-                tags.append(FLVTag(type: 9, timestamp: timestamp,
+            if bytes[offset] == FLVTag.video {
+                tags.append(FLVTag(type: FLVTag.video, timestamp: timestamp,
                                    payload: bytes.subdata(in: offset + 11 ..< offset + 11 + size)))
             }
             offset += size + 15
