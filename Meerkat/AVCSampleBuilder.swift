@@ -71,8 +71,6 @@ struct AVCSampleBuilder {
             throw FLVError.invalidAVC
         }
         let dictionary = unsafeBitCast(CFArrayGetValueAtIndex(attachments, 0), to: CFMutableDictionary.self)
-        CFDictionarySetValue(dictionary, Unmanaged.passUnretained(kCMSampleAttachmentKey_DisplayImmediately).toOpaque(),
-                             Unmanaged.passUnretained(kCFBooleanTrue).toOpaque())
         CFDictionarySetValue(dictionary, Unmanaged.passUnretained(kCMSampleAttachmentKey_NotSync).toOpaque(),
                              Unmanaged.passUnretained(hasIDR ? kCFBooleanFalse : kCFBooleanTrue).toOpaque())
         return sample

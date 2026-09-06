@@ -105,9 +105,13 @@ struct VideoPlayerView: NSViewRepresentable {
                 }
             }
             report(.connecting)
-            player = HTTPFLVPlayer(url: url, renderer: view.prepareLayer().sampleBufferRenderer,
-                                   onStateChange: report)
-            player?.start()
+            do {
+                player = try HTTPFLVPlayer(url: url, displayLayer: view.prepareLayer(),
+                                           onStateChange: report)
+                player?.start()
+            } catch {
+                report(.reconnecting)
+            }
         }
 
         func stop(view: SampleBufferVideoView) {

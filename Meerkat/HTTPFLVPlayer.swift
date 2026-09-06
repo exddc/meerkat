@@ -6,6 +6,7 @@ final class HTTPFLVPlayer: NSObject, URLSessionDataDelegate {
     private let url: URL
     private let configuration: URLSessionConfiguration
     private let renderer: AVSampleBufferVideoRenderer
+    private let timebase: CMTimebase
     private let onStateChange: (PlaybackState) -> Void
     private var session: URLSession?
     private var stream: URLSessionDataTask?
@@ -19,14 +20,17 @@ final class HTTPFLVPlayer: NSObject, URLSessionDataDelegate {
     private var pendingSamples = [CMSampleBuffer]()
     private var pendingBytes = 0
     private var requestingMedia = false
+    private var clockStarted = false
 
-    init(url: URL, renderer: AVSampleBufferVideoRenderer,
+    init(url: URL, displayLayer: AVSampleBufferDisplayLayer,
          configuration: URLSessionConfiguration = .ephemeral,
-         onStateChange: @escaping (PlaybackState) -> Void) {
+         onStateChange: @escaping (PlaybackState) -> Void) throws {
         self.configuration = configuration
         self.url = url
-        self.renderer = renderer
+        renderer = displayLayer.sampleBufferRenderer
+        timebase = try CMTimebase(sourceClock: CMClock.hostTimeClock)
         self.onStateChange = onStateChange
+        displayLayer.controlTimebase = timebase
     }
 
     func start() {
@@ -55,6 +59,8 @@ final class HTTPFLVPlayer: NSObject, URLSessionDataDelegate {
         requestingMedia = false
         pendingSamples.removeAll(keepingCapacity: false)
         pendingBytes = 0
+        CMTimebaseSetRate(timebase, rate: 0)
+        clockStarted = false
         renderer.flush(removingDisplayedImage: true)
     }
 
@@ -109,6 +115,7 @@ final class HTTPFLVPlayer: NSObject, URLSessionDataDelegate {
         while renderer.isReadyForMoreMediaData, !pendingSamples.isEmpty {
             let sample = pendingSamples.removeFirst()
             pendingBytes -= CMSampleBufferGetTotalSampleSize(sample)
+            startClockIfNeeded(for: sample)
             renderer.enqueue(sample)
             lastFrame = Date()
             if renderer.status == .rendering { report(.playing) }
@@ -117,6 +124,15 @@ final class HTTPFLVPlayer: NSObject, URLSessionDataDelegate {
             renderer.stopRequestingMediaData()
             requestingMedia = false
         }
+    }
+
+    private func startClockIfNeeded(for sample: CMSampleBuffer) {
+        guard !clockStarted else { return }
+        let presentationTime = CMSampleBufferGetPresentationTimeStamp(sample)
+        let bufferDuration = CMTime(value: 300, timescale: 1000)
+        CMTimebaseSetTime(timebase, time: presentationTime - bufferDuration)
+        CMTimebaseSetRate(timebase, rate: 1)
+        clockStarted = true
     }
 
     private func report(_ newState: PlaybackState) {

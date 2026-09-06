@@ -22,7 +22,7 @@ Add cameras in Settings.
 
 Each tile takes an HTTPS HTTP-FLV URL carrying H.264 (AVC). URLSession reads the stream, the FLV parser extracts video tags, and Core Media packs AVC frames for `AVSampleBufferDisplayLayer`. Audio tags are ignored. HLS demo URLs and RTSP are unsupported; add a real camera in Settings.
 
-Tiles retry failed connections after two seconds, including failures before the first frame. A ten-second video stall also triggers reconnection. Closing the panel cancels requests and retries, discards buffered bytes, and removes the display layers. The player displays frames immediately and waits for an IDR frame after each connection. It rejects HTTP redirects to preserve the endpoint and keep credentials on the configured camera.
+Tiles retry failed connections after two seconds, including failures before the first frame. A ten-second video stall also triggers reconnection. Closing the panel cancels requests and retries, discards buffered bytes, and removes the display layers. The player buffers 300 milliseconds, presents frames by their FLV timestamps, and waits for an IDR frame after each connection. It rejects HTTP redirects to preserve the endpoint and keep credentials on the configured camera.
 
 Run camera-independent tests with:
 

@@ -69,7 +69,7 @@ struct FLVPlaybackTests {
         #expect(status == noErr)
         #expect(copied == nals)
         let attachments = try #require(CMSampleBufferGetSampleAttachmentsArray(sample, createIfNecessary: false) as? [[String: Any]])
-        #expect(attachments[0][kCMSampleAttachmentKey_DisplayImmediately as String] as? Bool == true)
+        #expect(attachments[0][kCMSampleAttachmentKey_DisplayImmediately as String] == nil)
         #expect(attachments[0][kCMSampleAttachmentKey_NotSync as String] as? Bool == false)
     }
 
@@ -143,16 +143,19 @@ private final class FixtureStreamProtocol: URLProtocol, @unchecked Sendable {
 struct HTTPFLVPlayerTests {
     @Test func decodesFixtureAndReleasesSessionOnStop() async throws {
         let view = SampleBufferVideoView(frame: NSRect(x: 0, y: 0, width: 640, height: 360))
-        let renderer = view.prepareLayer().sampleBufferRenderer
+        let displayLayer = view.prepareLayer()
+        let renderer = displayLayer.sampleBufferRenderer
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [FixtureStreamProtocol.self]
-        var player: HTTPFLVPlayer? = HTTPFLVPlayer(url: URL(string: "https://fixture.test/stream")!,
-            renderer: renderer, configuration: configuration, onStateChange: { _ in })
+        var player: HTTPFLVPlayer? = try HTTPFLVPlayer(url: URL(string: "https://fixture.test/stream")!,
+            displayLayer: displayLayer, configuration: configuration, onStateChange: { _ in })
         weak var releasedPlayer = player
         player?.start()
         defer { player?.stop(); view.removeDisplayLayer() }
         try await Task.sleep(for: .seconds(1))
         #expect(renderer.status == .rendering)
+        let timebase = try #require(displayLayer.controlTimebase)
+        #expect(CMTimebaseGetRate(timebase) == 1)
         player?.stop()
         view.removeDisplayLayer()
         player = nil
@@ -163,12 +166,12 @@ struct HTTPFLVPlayerTests {
     }
 
     @Test func retriesBeforeFirstFrameAndCancelsPendingRetry() async throws {
-        let renderer = AVSampleBufferDisplayLayer().sampleBufferRenderer
+        let displayLayer = AVSampleBufferDisplayLayer()
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [FixtureStreamProtocol.self]
         var states = [PlaybackState]()
-        let player = HTTPFLVPlayer(url: URL(string: "https://fixture.test/failure")!,
-            renderer: renderer, configuration: configuration, onStateChange: { states.append($0) })
+        let player = try HTTPFLVPlayer(url: URL(string: "https://fixture.test/failure")!,
+            displayLayer: displayLayer, configuration: configuration, onStateChange: { states.append($0) })
         player.start()
         defer { player.stop() }
         try await Task.sleep(for: .milliseconds(2400))
