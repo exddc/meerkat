@@ -10,7 +10,11 @@ struct VideoTile: View {
     @State private var playbackState = PlaybackState.connecting
     @State private var isHovering = false
 
-    init(camera: Camera, isActive: Bool, playbackEnabled: Bool = true) {
+    init(
+        camera: Camera,
+        isActive: Bool,
+        playbackEnabled: Bool = true
+    ) {
         self.camera = camera
         self.isActive = isActive
         self.playbackEnabled = playbackEnabled
@@ -77,7 +81,7 @@ struct VideoTile: View {
             }
             .environment(\.colorScheme, .dark)
         }
-        .aspectRatio(16 / 9, contentMode: .fit)
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(.black)
         .clipShape(.rect(cornerRadius: 12))
         .onHover { isHovering = $0 }
@@ -101,7 +105,7 @@ struct VideoTile: View {
         isActive: true,
         playbackEnabled: false
     )
-    .frame(width: 320)
+    .frame(width: 320, height: 180)
     .padding()
     .preferredColorScheme(.light)
 }
@@ -115,7 +119,7 @@ struct VideoTile: View {
         isActive: true,
         playbackEnabled: false
     )
-    .frame(width: 320)
+    .frame(width: 320, height: 180)
     .padding()
     .preferredColorScheme(.dark)
 }

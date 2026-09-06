@@ -5,6 +5,7 @@ import SwiftUI
 struct MenuBarPanel: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Query(sort: \Camera.sortIndex) private var cameras: [Camera]
+    @State private var expandedCameraID: UUID?
     @State private var isVisible = false
     @State private var maximumContentHeight: CGFloat?
     @State private var showsSettings: Bool
@@ -12,13 +13,6 @@ struct MenuBarPanel: View {
     private let playbackEnabled: Bool
     private let panelWidth = CameraGridLayout.panelWidth
     private let panelMinHeight = CameraGridLayout.panelMinimumHeight
-    private var columns: [GridItem] {
-        Array(
-            repeating: GridItem(.flexible(), spacing: 4),
-            count: CameraGridLayout.columnCount(for: cameras.count)
-        )
-    }
-
     private var gridPanelHeight: CGFloat {
         CameraGridLayout.panelHeight(for: cameras.count)
     }
@@ -72,19 +66,33 @@ struct MenuBarPanel: View {
     }
 
     private var cameraGrid: some View {
-        ScrollView {
-            LazyVGrid(columns: columns, spacing: 4) {
-                ForEach(cameras) { camera in
-                    VideoTile(
-                        camera: camera,
-                        isActive: isVisible,
-                        playbackEnabled: playbackEnabled
-                    )
+        GeometryReader { proxy in
+            ScrollView {
+                CameraTileLayout(
+                    expandedCameraID: expandedCameraID,
+                    viewportSize: proxy.size
+                ) {
+                    ForEach(cameras) { camera in
+                        interactiveTile(camera)
+                        .layoutValue(key: CameraTileIDKey.self, value: camera.cameraID)
+                        .opacity(
+                            expandedCameraID == nil || expandedCameraID == camera.cameraID
+                                ? 1
+                                : 0
+                        )
+                        .allowsHitTesting(
+                            expandedCameraID == nil || expandedCameraID == camera.cameraID
+                        )
+                        .accessibilityHidden(
+                            expandedCameraID != nil && expandedCameraID != camera.cameraID
+                        )
+                        .zIndex(expandedCameraID == camera.cameraID ? 1 : 0)
+                    }
                 }
             }
-            .padding(4)
+            .scrollDisabled(expandedCameraID != nil)
+            .scrollIndicators(expandedCameraID == nil ? .automatic : .hidden)
         }
-        .scrollIndicators(.automatic)
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .overlay {
             if cameras.isEmpty {
@@ -122,6 +130,50 @@ struct MenuBarPanel: View {
             .padding(12)
             .accessibilityLabel("Settings")
             .accessibilityIdentifier("settings-button")
+            .opacity(expandedCameraID == nil ? 1 : 0)
+            .allowsHitTesting(expandedCameraID == nil)
+            .accessibilityHidden(expandedCameraID != nil)
+        }
+    }
+
+    private func interactiveTile(_ camera: Camera) -> some View {
+        Button {
+            setExpandedCamera(camera)
+        } label: {
+            VideoTile(
+                camera: camera,
+                isActive: isVisible
+                    && (expandedCameraID == nil || expandedCameraID == camera.cameraID),
+                playbackEnabled: playbackEnabled
+            )
+            .contentShape(.rect)
+        }
+        .buttonStyle(.plain)
+        .disabled(
+            expandedCameraID == nil
+                && !CameraGridLayout.canExpandTiles(for: cameras.count)
+        )
+        .accessibilityLabel(camera.name)
+        .accessibilityHint(
+            expandedCameraID == camera.cameraID
+                ? "Show all cameras"
+                : CameraGridLayout.canExpandTiles(for: cameras.count)
+                    ? "Expand camera"
+                    : ""
+        )
+        .accessibilityIdentifier("\(camera.cameraID.uuidString)-tile")
+    }
+
+    private func setExpandedCamera(_ camera: Camera) {
+        guard expandedCameraID == camera.cameraID
+                || CameraGridLayout.canExpandTiles(for: cameras.count) else {
+            return
+        }
+        let animation: Animation? = reduceMotion ? nil : .smooth(duration: 0.3)
+        withAnimation(animation) {
+            expandedCameraID = expandedCameraID == camera.cameraID
+                ? nil
+                : camera.cameraID
         }
     }
 
