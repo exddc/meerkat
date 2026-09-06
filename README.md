@@ -15,8 +15,20 @@ https://<ip>/flv?port=1935&app=bcs&stream=channel0_sub.bcs&user=<user>&password=
 Add cameras in Settings.
 
 - Use HTTPS. An HTTP request redirects to `https://<ip>/` and drops the `/flv` path.
-- Reolink cameras present a self-signed TLS certificate. The player skips certificate verification.
+- Reolink cameras present a self-signed TLS certificate. The player accepts it only for the configured `/flv` endpoint on a private or link-local IP address. Public hosts use normal certificate validation. Use the camera’s LAN IP for self-signed certificates.
 - Do not percent-encode special characters in the password. A `!` sent as `%21` makes the camera drop the stream.
+
+## Playback
+
+Each tile takes an HTTPS HTTP-FLV URL carrying H.264 (AVC). URLSession reads the stream, the FLV parser extracts video tags, and Core Media packs AVC frames for `AVSampleBufferDisplayLayer`. Audio tags are ignored. HLS demo URLs and RTSP are unsupported; add a real camera in Settings.
+
+Tiles retry dropped connections after two seconds, including failures before the first frame. A ten-second video stall also triggers reconnection. A 429 or 5xx response retries after two seconds as well. A 401 or 403 response shows “Check credentials”, an unsupported codec such as H.265, a redirect, or another non-FLV response shows “Unsupported stream”, and a rejected certificate shows “Untrusted certificate”. These retry every 30 seconds. Closing the panel cancels requests and retries, discards buffered bytes, and removes the display layers. The player buffers 300 milliseconds, presents frames by their FLV timestamps, and waits for an IDR frame after each connection. It re-anchors its clock when decode timestamps run more than a second ahead or 100 milliseconds behind, so camera clock drift and network bursts never force a reconnect. It rejects HTTP redirects to preserve the endpoint and keep credentials on the configured camera.
+
+Run camera-independent tests with:
+
+```sh
+xcodebuild -project Meerkat.xcodeproj -scheme Meerkat -only-testing:MeerkatTests test
+```
 
 ## License
 

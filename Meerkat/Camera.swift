@@ -26,6 +26,7 @@ final class Camera {
 
     var playableStreamURL: URL? {
         guard let parsed = URL(string: streamURLString),
+              parsed.scheme == "https",
               let host = parsed.host, !host.isEmpty else {
             return nil
         }
