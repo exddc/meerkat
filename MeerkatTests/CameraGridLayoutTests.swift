@@ -15,6 +15,16 @@ struct CameraGridLayoutTests {
         #expect(CameraGridLayout.columnCount(for: cameraCount) == expectedColumns)
     }
 
+    @Test(arguments: [0, 1, 2])
+    func doesNotExpandFullWidthTiles(cameraCount: Int) {
+        #expect(!CameraGridLayout.canExpandTiles(for: cameraCount))
+    }
+
+    @Test(arguments: [3, 4, 5, 10])
+    func expandsTilesInMultiColumnGrids(cameraCount: Int) {
+        #expect(CameraGridLayout.canExpandTiles(for: cameraCount))
+    }
+
     @Test
     func growsForAdditionalRows() {
         #expect(CameraGridLayout.settingsPanelHeight == 484)

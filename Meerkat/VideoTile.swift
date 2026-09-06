@@ -4,7 +4,6 @@ struct VideoTile: View {
     let camera: Camera
     let isActive: Bool
     let playbackEnabled: Bool
-    let fillsAvailableSpace: Bool
 
     @AppStorage(AppInfo.cameraLabelVisibilityKey) private var cameraLabelVisibility = CameraLabelVisibility.always
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
@@ -14,13 +13,11 @@ struct VideoTile: View {
     init(
         camera: Camera,
         isActive: Bool,
-        playbackEnabled: Bool = true,
-        fillsAvailableSpace: Bool = false
+        playbackEnabled: Bool = true
     ) {
         self.camera = camera
         self.isActive = isActive
         self.playbackEnabled = playbackEnabled
-        self.fillsAvailableSpace = fillsAvailableSpace
     }
 
     private var showsCameraLabel: Bool {
@@ -84,7 +81,7 @@ struct VideoTile: View {
             }
             .environment(\.colorScheme, .dark)
         }
-        .modifier(VideoTileSizing(fillsAvailableSpace: fillsAvailableSpace))
+        .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(.black)
         .clipShape(.rect(cornerRadius: 12))
         .onHover { isHovering = $0 }
@@ -99,19 +96,6 @@ struct VideoTile: View {
     }
 }
 
-private struct VideoTileSizing: ViewModifier {
-    let fillsAvailableSpace: Bool
-
-    @ViewBuilder
-    func body(content: Content) -> some View {
-        if fillsAvailableSpace {
-            content.frame(maxWidth: .infinity, maxHeight: .infinity)
-        } else {
-            content.aspectRatio(16 / 9, contentMode: .fit)
-        }
-    }
-}
-
 #Preview("Light") {
     VideoTile(
         camera: Camera(
@@ -121,7 +105,7 @@ private struct VideoTileSizing: ViewModifier {
         isActive: true,
         playbackEnabled: false
     )
-    .frame(width: 320)
+    .frame(width: 320, height: 180)
     .padding()
     .preferredColorScheme(.light)
 }
@@ -135,7 +119,7 @@ private struct VideoTileSizing: ViewModifier {
         isActive: true,
         playbackEnabled: false
     )
-    .frame(width: 320)
+    .frame(width: 320, height: 180)
     .padding()
     .preferredColorScheme(.dark)
 }

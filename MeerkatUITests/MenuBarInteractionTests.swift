@@ -5,6 +5,7 @@ final class MenuBarInteractionTests: XCTestCase {
     func testPanelOpensFromMenuBar() {
         let app = XCUIApplication()
         app.launch()
+        defer { app.terminate() }
 
         let statusItem = app.menuBars.statusItems["Meerkat"]
         XCTAssertTrue(statusItem.waitForExistence(timeout: 5))
@@ -33,10 +34,7 @@ final class MenuBarInteractionTests: XCTestCase {
         XCTAssertTrue(settings.waitForExistence(timeout: 5))
         settings.click()
 
-        let addCamera = app.buttons["settings-add-camera"]
-        XCTAssertTrue(addCamera.waitForExistence(timeout: 5))
-        addCamera.click()
-        addCamera.click()
+        resetCameras(in: app, count: 3)
         app.buttons["settings-back"].click()
 
         let tiles = app.buttons.matching(
@@ -53,6 +51,49 @@ final class MenuBarInteractionTests: XCTestCase {
 
         tiles.allElementsBoundByIndex.first(where: \.isHittable)?.click()
         XCTAssertTrue(settings.waitForExistence(timeout: 5))
+    }
+
+    @MainActor
+    func testFullWidthTileDoesNotExpand() {
+        let app = XCUIApplication()
+        app.launch()
+        defer { app.terminate() }
+
+        let statusItem = app.menuBars.statusItems["Meerkat"]
+        XCTAssertTrue(statusItem.waitForExistence(timeout: 5))
+        statusItem.click()
+
+        let settings = app.buttons["settings-button"]
+        XCTAssertTrue(settings.waitForExistence(timeout: 5))
+        settings.click()
+        resetCameras(in: app, count: 2)
+        app.buttons["settings-back"].click()
+
+        let tiles = app.buttons.matching(
+            NSPredicate(format: "identifier ENDSWITH '-tile'")
+        )
+        XCTAssertEqual(tiles.count, 2)
+        tiles.firstMatch.coordinate(withNormalizedOffset: CGVector(dx: 0.5, dy: 0.5)).click()
+
+        XCTAssertEqual(tiles.count, 2)
+        XCTAssertTrue(settings.exists)
+        addScreenshot(named: "TW-375 Full Width Guard")
+    }
+
+    @MainActor
+    private func resetCameras(in app: XCUIApplication, count: Int) {
+        let removeButtons = app.buttons.matching(
+            NSPredicate(format: "identifier ENDSWITH '-remove'")
+        )
+        while removeButtons.firstMatch.exists {
+            removeButtons.firstMatch.click()
+        }
+
+        let addCamera = app.buttons["settings-add-camera"]
+        XCTAssertTrue(addCamera.waitForExistence(timeout: 5))
+        for _ in 0..<count {
+            addCamera.click()
+        }
     }
 
     @MainActor
