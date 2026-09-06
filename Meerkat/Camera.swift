@@ -32,45 +32,4 @@ final class Camera {
         }
         return streamURL
     }
-
-    var logEndpoint: String {
-        guard var components = URLComponents(
-            url: streamURL,
-            resolvingAgainstBaseURL: false
-        ) else {
-            return "<invalid URL>"
-        }
-
-        components.user = nil
-        components.password = nil
-        components.query = nil
-        components.fragment = nil
-        return components.string ?? "<invalid URL>"
-    }
-
-    var logRedactions: [(value: String, replacement: String)] {
-        var values = [(streamURL.absoluteString, logEndpoint)]
-        let components = URLComponents(
-            url: streamURL,
-            resolvingAgainstBaseURL: false
-        )
-
-        for item in components?.queryItems ?? [] {
-            if ["user", "password"].contains(item.name),
-               let value = item.value,
-               !value.isEmpty {
-                values.append((value, "<redacted>"))
-            }
-        }
-
-        for item in components?.percentEncodedQueryItems ?? [] {
-            if ["user", "password"].contains(item.name),
-               let value = item.value,
-               !value.isEmpty {
-                values.append((value, "<redacted>"))
-            }
-        }
-
-        return values
-    }
 }

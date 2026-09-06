@@ -4,16 +4,6 @@ import Testing
 
 struct CameraTests {
     @Test
-    func redactsCredentialsFromLogEndpoint() {
-        let camera = Camera(
-            name: "Front Door",
-            streamURLString: "https://user:secret@camera.test/flv?user=user&password=secret"
-        )
-
-        #expect(camera.logEndpoint == "https://camera.test/flv")
-    }
-
-    @Test
     func preservesLiteralBangInStreamPassword() {
         let camera = Camera(
             name: "Front Door",
