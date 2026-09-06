@@ -4,16 +4,23 @@ struct VideoTile: View {
     let camera: Camera
     let isActive: Bool
     let playbackEnabled: Bool
+    let fillsAvailableSpace: Bool
 
     @AppStorage(AppInfo.cameraLabelVisibilityKey) private var cameraLabelVisibility = CameraLabelVisibility.always
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @State private var playbackState = PlaybackState.connecting
     @State private var isHovering = false
 
-    init(camera: Camera, isActive: Bool, playbackEnabled: Bool = true) {
+    init(
+        camera: Camera,
+        isActive: Bool,
+        playbackEnabled: Bool = true,
+        fillsAvailableSpace: Bool = false
+    ) {
         self.camera = camera
         self.isActive = isActive
         self.playbackEnabled = playbackEnabled
+        self.fillsAvailableSpace = fillsAvailableSpace
     }
 
     private var showsCameraLabel: Bool {
@@ -77,7 +84,7 @@ struct VideoTile: View {
             }
             .environment(\.colorScheme, .dark)
         }
-        .aspectRatio(16 / 9, contentMode: .fit)
+        .modifier(VideoTileSizing(fillsAvailableSpace: fillsAvailableSpace))
         .background(.black)
         .clipShape(.rect(cornerRadius: 12))
         .onHover { isHovering = $0 }
@@ -88,6 +95,19 @@ struct VideoTile: View {
         }
         .onDisappear {
             playbackState = .connecting
+        }
+    }
+}
+
+private struct VideoTileSizing: ViewModifier {
+    let fillsAvailableSpace: Bool
+
+    @ViewBuilder
+    func body(content: Content) -> some View {
+        if fillsAvailableSpace {
+            content.frame(maxWidth: .infinity, maxHeight: .infinity)
+        } else {
+            content.aspectRatio(16 / 9, contentMode: .fit)
         }
     }
 }

@@ -18,4 +18,62 @@ final class MenuBarInteractionTests: XCTestCase {
         attachment.lifetime = .keepAlways
         add(attachment)
     }
+
+    @MainActor
+    func testTileExpandsAndReturnsToGrid() {
+        let app = XCUIApplication()
+        app.launch()
+        defer { app.terminate() }
+
+        let statusItem = app.menuBars.statusItems["Meerkat"]
+        XCTAssertTrue(statusItem.waitForExistence(timeout: 5))
+        statusItem.click()
+
+        let settings = app.buttons["settings-button"]
+        XCTAssertTrue(settings.waitForExistence(timeout: 5))
+        settings.click()
+
+        let addCamera = app.buttons["settings-add-camera"]
+        XCTAssertTrue(addCamera.waitForExistence(timeout: 5))
+        addCamera.click()
+        addCamera.click()
+        app.buttons["settings-back"].click()
+
+        let tiles = app.buttons.matching(
+            NSPredicate(format: "identifier ENDSWITH '-tile'")
+        )
+        XCTAssertTrue(tiles.firstMatch.waitForExistence(timeout: 5))
+        XCTAssertGreaterThanOrEqual(tiles.count, 2)
+        addScreenshot(named: "TW-375 Before")
+
+        tiles.firstMatch.click()
+        waitForHittableTileCount(1, in: tiles)
+        XCTAssertFalse(settings.isHittable)
+        addScreenshot(named: "TW-375 Expanded")
+
+        tiles.allElementsBoundByIndex.first(where: \.isHittable)?.click()
+        XCTAssertTrue(settings.waitForExistence(timeout: 5))
+    }
+
+    @MainActor
+    private func waitForHittableTileCount(
+        _ count: Int,
+        in tiles: XCUIElementQuery
+    ) {
+        let predicate = NSPredicate { _, _ in
+            MainActor.assumeIsolated {
+                tiles.allElementsBoundByIndex.filter { $0.isHittable }.count == count
+            }
+        }
+        expectation(for: predicate, evaluatedWith: tiles)
+        waitForExpectations(timeout: 5)
+    }
+
+    @MainActor
+    private func addScreenshot(named name: String) {
+        let attachment = XCTAttachment(screenshot: XCUIScreen.main.screenshot())
+        attachment.name = name
+        attachment.lifetime = .keepAlways
+        add(attachment)
+    }
 }
