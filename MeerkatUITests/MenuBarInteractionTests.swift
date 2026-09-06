@@ -55,6 +55,42 @@ final class MenuBarInteractionTests: XCTestCase {
     }
 
     @MainActor
+    func testAppearanceControlsChangeThemeAndTransparency() {
+        let app = XCUIApplication()
+        app.launch()
+        defer { app.terminate() }
+
+        let statusItem = app.menuBars.statusItems["Meerkat"]
+        XCTAssertTrue(statusItem.waitForExistence(timeout: 5))
+        statusItem.click()
+
+        let settings = app.buttons["settings-button"]
+        XCTAssertTrue(settings.waitForExistence(timeout: 5))
+        settings.click()
+
+        let theme = app.popUpButtons["settings-theme"]
+        XCTAssertTrue(theme.waitForExistence(timeout: 5))
+        theme.click()
+        app.menuItems["Dark"].click()
+        addScreenshot(named: "TW-374 Theme Dark")
+
+        theme.click()
+        app.menuItems["Light"].click()
+        addScreenshot(named: "TW-374 Theme Light")
+
+        let slider = app.sliders["settings-transparency"]
+        if !slider.isHittable {
+            app.swipeUp()
+        }
+        XCTAssertTrue(slider.waitForExistence(timeout: 5))
+        slider.adjust(toNormalizedSliderPosition: 0.55)
+        addScreenshot(named: "TW-374 Transparency Slider")
+
+        theme.click()
+        app.menuItems["System"].click()
+    }
+
+    @MainActor
     func testFullWidthTileDoesNotExpand() {
         let app = XCUIApplication()
         app.launch()

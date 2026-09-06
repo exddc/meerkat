@@ -8,7 +8,13 @@ struct SettingsSheet: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Camera.sortIndex) private var cameras: [Camera]
     @AppStorage(AppInfo.cameraLabelVisibilityKey) private var cameraLabelVisibility = CameraLabelVisibility.always
+    @AppStorage(AppearanceSetting.key) private var appearance = AppearanceSetting.fallback
+    @AppStorage(PanelTransparency.key) private var transparency = PanelTransparency.fallback
     @State private var saveErrorMessage: String?
+    @State private var reduceTransparency = NSWorkspace.shared
+        .accessibilityDisplayShouldReduceTransparency
+    @State private var increaseContrast = NSWorkspace.shared
+        .accessibilityDisplayShouldIncreaseContrast
 
     var body: some View {
         VStack(spacing: 0) {
@@ -52,6 +58,68 @@ struct SettingsSheet: View {
                             .accessibilityIdentifier("settings-show-camera-labels")
                         }
                     }
+
+                    SettingsGroup(
+                        title: "Appearance",
+                        subtitle: "Theme and panel glass"
+                    ) {
+                        LabeledContent("Theme") {
+                            Spacer()
+                            Picker("Theme", selection: $appearance) {
+                                ForEach(AppearanceSetting.allCases, id: \.self) { option in
+                                    Text(option.title).tag(option)
+                                }
+                            }
+                            .pickerStyle(.menu)
+                            .labelsHidden()
+                            .fixedSize()
+                            .accessibilityIdentifier("settings-theme")
+                            .onChange(of: appearance) {
+                                AppearanceSetting.applyCurrent()
+                            }
+                        }
+
+                        Divider()
+
+                        VStack(alignment: .leading, spacing: 8) {
+                            HStack {
+                                Text("Transparency")
+                                Spacer()
+                                Text(transparencyPercent)
+                                    .foregroundStyle(.secondary)
+                                    .monospacedDigit()
+                            }
+
+                            HStack(spacing: 8) {
+                                Image(systemName: "circle.fill")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                                    .accessibilityHidden(true)
+
+                                Slider(
+                                    value: $transparency,
+                                    in: PanelTransparency.range
+                                )
+                                .disabled(isTransparencyPaused)
+                                .accessibilityLabel("Transparency")
+                                .accessibilityIdentifier("settings-transparency")
+
+                                Image(systemName: "circle")
+                                    .font(.caption2)
+                                    .foregroundStyle(.secondary)
+                                    .accessibilityHidden(true)
+                            }
+
+                            if isTransparencyPaused {
+                                Text(
+                                    "macOS Reduce Transparency or Increase Contrast is on, so this stays paused."
+                                )
+                                .font(.caption)
+                                .foregroundStyle(.orange)
+                                .accessibilityIdentifier("settings-transparency-paused")
+                            }
+                        }
+                    }
                 }
                 .padding(12)
             }
@@ -67,7 +135,17 @@ struct SettingsSheet: View {
             .padding(.vertical, 8)
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
-        .background(.background)
+        .background(.clear)
+        .onReceive(
+            NSWorkspace.shared.notificationCenter.publisher(
+                for: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification
+            )
+        ) { _ in
+            reduceTransparency = NSWorkspace.shared
+                .accessibilityDisplayShouldReduceTransparency
+            increaseContrast = NSWorkspace.shared
+                .accessibilityDisplayShouldIncreaseContrast
+        }
         .alert(
             "Could not save cameras",
             isPresented: Binding(
@@ -105,7 +183,24 @@ struct SettingsSheet: View {
         }
         .padding(12)
         .frame(maxWidth: .infinity)
-        .background(.background)
+        .background(.clear)
+    }
+
+    private var isTransparencyPaused: Bool {
+        PanelTransparency.isPaused(
+            stored: transparency,
+            reduceTransparency: reduceTransparency,
+            increaseContrast: increaseContrast
+        )
+    }
+
+    private var transparencyPercent: String {
+        let value = PanelTransparency.effectiveValue(
+            stored: transparency,
+            reduceTransparency: reduceTransparency,
+            increaseContrast: increaseContrast
+        )
+        return "\(Int((value * 100).rounded()))%"
     }
 
     private func addCamera() {
@@ -137,6 +232,7 @@ private struct SettingsGroup<Content: View>: View {
     let title: String
     var subtitle: String?
     @ViewBuilder var content: () -> Content
+    @Environment(\.panelTransparency) private var transparency
 
     var body: some View {
         VStack(alignment: .leading, spacing: 12) {
@@ -155,10 +251,18 @@ private struct SettingsGroup<Content: View>: View {
         }
         .frame(maxWidth: .infinity, alignment: .leading)
         .padding(14)
-        .background(
-            .quaternary.opacity(0.4),
-            in: RoundedRectangle(cornerRadius: 12, style: .continuous)
-        )
+        .background {
+            let shape = RoundedRectangle(cornerRadius: 12, style: .continuous)
+            shape
+                .fill(Color(nsColor: .textBackgroundColor).opacity(cardBaseOpacity))
+                .overlay { shape.fill(.quaternary.opacity(0.4)) }
+        }
+    }
+
+    /// At 0 the card matches today's grouped fill. As the slider rises, a frosted
+    /// page base fades in so labels stay readable over behind-window vibrancy.
+    private var cardBaseOpacity: Double {
+        transparency > 0 ? 0.55 + (0.45 * (1 - transparency)) : 0
     }
 }
 
@@ -196,14 +300,14 @@ private struct CameraRow: View {
 
 #Preview("Empty Light") {
     SettingsSheet()
-        .frame(width: 420, height: 360)
+        .frame(width: 420, height: 620)
         .modelContainer(Persistence.preview(cameras: []))
         .preferredColorScheme(.light)
 }
 
 #Preview("Empty Dark") {
     SettingsSheet()
-        .frame(width: 420, height: 360)
+        .frame(width: 420, height: 620)
         .modelContainer(Persistence.preview(cameras: []))
         .preferredColorScheme(.dark)
 }

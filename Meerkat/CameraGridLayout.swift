@@ -4,7 +4,7 @@ import SwiftUI
 enum CameraGridLayout {
     static let panelWidth: CGFloat = 420
     static let panelMinimumHeight: CGFloat = 242
-    static let settingsPanelHeight = panelMinimumHeight * 2
+    static let settingsPanelHeight = panelMinimumHeight * 2.5
     static let spacing: CGFloat = 4
     static let padding: CGFloat = 4
 

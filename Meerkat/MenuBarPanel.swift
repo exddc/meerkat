@@ -5,10 +5,16 @@ import SwiftUI
 struct MenuBarPanel: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Query(sort: \Camera.sortIndex) private var cameras: [Camera]
+    @AppStorage(AppearanceSetting.key) private var appearance = AppearanceSetting.fallback
+    @AppStorage(PanelTransparency.key) private var transparency = PanelTransparency.fallback
     @State private var expandedCameraID: UUID?
     @State private var isVisible = false
     @State private var maximumContentHeight: CGFloat?
     @State private var showsSettings: Bool
+    @State private var reduceTransparency = NSWorkspace.shared
+        .accessibilityDisplayShouldReduceTransparency
+    @State private var increaseContrast = NSWorkspace.shared
+        .accessibilityDisplayShouldIncreaseContrast
 
     private let playbackEnabled: Bool
     private let panelWidth = CameraGridLayout.panelWidth
@@ -25,6 +31,14 @@ struct MenuBarPanel: View {
         CameraGridLayout.constrainedHeight(
             desiredContentHeight,
             maximum: maximumContentHeight
+        )
+    }
+
+    private var effectiveTransparency: Double {
+        PanelTransparency.effectiveValue(
+            stored: transparency,
+            reduceTransparency: reduceTransparency,
+            increaseContrast: increaseContrast
         )
     }
 
@@ -47,6 +61,28 @@ struct MenuBarPanel: View {
         .offset(x: showsSettings ? -panelWidth : 0)
         .frame(width: panelWidth, height: contentHeight, alignment: .topLeading)
         .clipped()
+        .background(.clear)
+        .background {
+            PanelBackdrop(
+                transparency: effectiveTransparency,
+                appearance: appearance.nsAppearance
+            )
+        }
+        .preferredColorScheme(appearance.colorScheme)
+        .environment(\.panelTransparency, effectiveTransparency)
+        .onChange(of: appearance) {
+            AppearanceSetting.applyCurrent()
+        }
+        .onReceive(
+            NSWorkspace.shared.notificationCenter.publisher(
+                for: NSWorkspace.accessibilityDisplayOptionsDidChangeNotification
+            )
+        ) { _ in
+            reduceTransparency = NSWorkspace.shared
+                .accessibilityDisplayShouldReduceTransparency
+            increaseContrast = NSWorkspace.shared
+                .accessibilityDisplayShouldIncreaseContrast
+        }
         .background {
             PanelWindowObserver(
                 contentSize: CGSize(width: panelWidth, height: contentHeight),

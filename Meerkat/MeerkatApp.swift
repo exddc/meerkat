@@ -3,6 +3,10 @@ import SwiftUI
 
 @main
 struct MeerkatApp: App {
+    init() {
+        AppearanceSetting.applyCurrent()
+    }
+
     var body: some Scene {
         MenuBarExtra {
             MenuBarPanel()
