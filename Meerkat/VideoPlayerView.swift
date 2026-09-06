@@ -2,23 +2,6 @@ import AppKit
 import AVFoundation
 import SwiftUI
 
-enum PlaybackState: Equatable {
-    case connecting
-    case reconnecting
-    case playing
-
-    var status: (symbol: String, text: String)? {
-        switch self {
-        case .connecting:
-            ("antenna.radiowaves.left.and.right", "Connecting…")
-        case .reconnecting:
-            ("arrow.clockwise", "Reconnecting…")
-        case .playing:
-            nil
-        }
-    }
-}
-
 final class SampleBufferVideoView: NSView {
     private(set) var displayLayer: AVSampleBufferDisplayLayer?
 
@@ -87,30 +70,20 @@ struct VideoPlayerView: NSViewRepresentable {
             guard active else { stop(view: view); return }
             guard let url else {
                 stop(view: view)
-                let generation = self.generation
-                Task { @MainActor [weak self] in
-                    guard let self, self.generation == generation else { return }
-                    self.onStateChange?(.connecting)
-                }
+                schedule(.connecting)
                 return
             }
             guard player == nil || self.url != url else { return }
             stop(view: view)
             self.url = url
-            let generation = self.generation
-            let report: (PlaybackState) -> Void = { [weak self] state in
-                Task { @MainActor [weak self] in
-                    guard let self, self.generation == generation else { return }
-                    self.onStateChange?(state)
-                }
-            }
-            report(.connecting)
+            schedule(.connecting)
             do {
-                player = try HTTPFLVPlayer(url: url, displayLayer: view.prepareLayer(),
-                                           onStateChange: report)
+                player = try HTTPFLVPlayer(url: url, displayLayer: view.prepareLayer()) { [weak self] state in
+                    self?.schedule(state)
+                }
                 player?.start()
             } catch {
-                report(.reconnecting)
+                schedule(.reconnecting)
             }
         }
 
@@ -120,6 +93,14 @@ struct VideoPlayerView: NSViewRepresentable {
             player = nil
             url = nil
             view.removeDisplayLayer()
+        }
+
+        private func schedule(_ state: PlaybackState) {
+            let generation = self.generation
+            Task { @MainActor [weak self] in
+                guard let self, self.generation == generation else { return }
+                self.onStateChange?(state)
+            }
         }
     }
 }

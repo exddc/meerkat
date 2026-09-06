@@ -3,6 +3,15 @@ import Foundation
 
 @MainActor
 final class HTTPFLVPlayer: NSObject, URLSessionDataDelegate {
+    static let retryDelay = Duration.seconds(2)
+    static let failureRetryDelay = Duration.seconds(30)
+    static let stallTimeout: TimeInterval = 10
+    static let maximumPendingBytes = 4 * 1024 * 1024
+    private static let untrustedCertificateCodes: [URLError.Code] = [
+        .serverCertificateUntrusted, .serverCertificateHasBadDate,
+        .serverCertificateHasUnknownRoot, .serverCertificateNotYetValid,
+    ]
+
     private let url: URL
     private let configuration: URLSessionConfiguration
     private let renderer: AVSampleBufferVideoRenderer
@@ -12,6 +21,7 @@ final class HTTPFLVPlayer: NSObject, URLSessionDataDelegate {
     private var stream: URLSessionDataTask?
     private var parser = FLVParser()
     private var builder = AVCSampleBuilder()
+    private var clock = PlaybackClock()
     private var retry: Task<Void, Never>?
     private var watchdog: Task<Void, Never>?
     private var lastFrame = Date()
@@ -20,11 +30,15 @@ final class HTTPFLVPlayer: NSObject, URLSessionDataDelegate {
     private var pendingSamples = [CMSampleBuffer]()
     private var pendingBytes = 0
     private var requestingMedia = false
-    private var clockStarted = false
 
     init(url: URL, displayLayer: AVSampleBufferDisplayLayer,
          configuration: URLSessionConfiguration = .ephemeral,
          onStateChange: @escaping (PlaybackState) -> Void) throws {
+        let configuration = configuration.copy() as! URLSessionConfiguration
+        configuration.urlCache = nil
+        configuration.httpCookieStorage = nil
+        configuration.timeoutIntervalForRequest = Self.stallTimeout
+        configuration.timeoutIntervalForResource = .infinity
         self.configuration = configuration
         self.url = url
         renderer = displayLayer.sampleBufferRenderer
@@ -55,21 +69,17 @@ final class HTTPFLVPlayer: NSObject, URLSessionDataDelegate {
         session = nil
         parser = FLVParser()
         builder = AVCSampleBuilder()
+        clock.reset()
         renderer.stopRequestingMediaData()
         requestingMedia = false
         pendingSamples.removeAll(keepingCapacity: false)
         pendingBytes = 0
         CMTimebaseSetRate(timebase, rate: 0)
-        clockStarted = false
         renderer.flush(removingDisplayedImage: true)
     }
 
     private func connect() {
         guard active else { return }
-        configuration.urlCache = nil
-        configuration.httpCookieStorage = nil
-        configuration.timeoutIntervalForRequest = 10
-        configuration.timeoutIntervalForResource = .infinity
         let session = URLSession(configuration: configuration, delegate: self, delegateQueue: .main)
         self.session = session
         var request = URLRequest(url: url, cachePolicy: .reloadIgnoringLocalCacheData)
@@ -81,58 +91,69 @@ final class HTTPFLVPlayer: NSObject, URLSessionDataDelegate {
             while !Task.isCancelled {
                 try? await Task.sleep(for: .seconds(1))
                 guard !Task.isCancelled, let self else { return }
-                if Date().timeIntervalSince(self.lastFrame) > 10 || self.renderer.status == .failed {
-                    self.reconnect()
+                if Date().timeIntervalSince(self.lastFrame) > Self.stallTimeout || self.renderer.status == .failed {
+                    self.fail(.reconnecting)
                     return
                 }
             }
         }
     }
 
-    private func reconnect() {
+    private func fail(_ failure: PlaybackState) {
         guard active, retry == nil else { return }
         disconnect()
-        report(.reconnecting)
+        report(failure)
+        let delay = failure == .reconnecting ? Self.retryDelay : Self.failureRetryDelay
         retry = Task { [weak self] in
-            try? await Task.sleep(for: .seconds(2))
+            try? await Task.sleep(for: delay)
             guard !Task.isCancelled, let self else { return }
             self.retry = nil
             self.connect()
         }
     }
 
-    private func requestMedia() {
-        guard !requestingMedia else { return }
-        requestingMedia = true
-        renderer.requestMediaDataWhenReady(on: .main) { [weak self] in
-            MainActor.assumeIsolated { self?.drainSamples() }
+    private func fail(with error: Error?) {
+        if let code = (error as? URLError)?.code, Self.untrustedCertificateCodes.contains(code) {
+            fail(.untrusted)
+        } else {
+            fail(.reconnecting)
         }
+    }
+
+    private func enqueue(_ sample: CMSampleBuffer) {
+        pendingSamples.append(sample)
+        pendingBytes += CMSampleBufferGetTotalSampleSize(sample)
+        drainSamples()
     }
 
     private func drainSamples() {
         guard active else { return }
-        guard renderer.status != .failed else { reconnect(); return }
-        while renderer.isReadyForMoreMediaData, !pendingSamples.isEmpty {
-            let sample = pendingSamples.removeFirst()
+        guard renderer.status != .failed else { fail(.reconnecting); return }
+        while renderer.isReadyForMoreMediaData, let sample = pendingSamples.first {
+            pendingSamples.removeFirst()
             pendingBytes -= CMSampleBufferGetTotalSampleSize(sample)
-            startClockIfNeeded(for: sample)
+            synchronizeClock(with: sample)
             renderer.enqueue(sample)
             lastFrame = Date()
             if renderer.status == .rendering { report(.playing) }
         }
         if pendingSamples.isEmpty {
+            guard requestingMedia else { return }
             renderer.stopRequestingMediaData()
             requestingMedia = false
+        } else if !requestingMedia {
+            requestingMedia = true
+            renderer.requestMediaDataWhenReady(on: .main) { [weak self] in
+                MainActor.assumeIsolated { self?.drainSamples() }
+            }
         }
     }
 
-    private func startClockIfNeeded(for sample: CMSampleBuffer) {
-        guard !clockStarted else { return }
-        let presentationTime = CMSampleBufferGetPresentationTimeStamp(sample)
-        let bufferDuration = CMTime(value: 300, timescale: 1000)
-        CMTimebaseSetTime(timebase, time: presentationTime - bufferDuration)
+    private func synchronizeClock(with sample: CMSampleBuffer) {
+        let presentation = CMSampleBufferGetPresentationTimeStamp(sample)
+        guard let time = clock.anchor(for: presentation, now: CMTimebaseGetTime(timebase)) else { return }
+        CMTimebaseSetTime(timebase, time: time)
         CMTimebaseSetRate(timebase, rate: 1)
-        clockStarted = true
     }
 
     private func report(_ newState: PlaybackState) {
@@ -146,19 +167,18 @@ final class HTTPFLVPlayer: NSObject, URLSessionDataDelegate {
             guard active, dataTask === stream else { return }
             do {
                 for tag in try parser.append(data) {
-                    if let sample = try builder.sample(for: tag) {
-                        guard renderer.status != .failed, pendingSamples.count < 30,
-                              pendingBytes + CMSampleBufferGetTotalSampleSize(sample) <= 4 * 1024 * 1024 else {
-                            reconnect()
-                            return
-                        }
-                        pendingSamples.append(sample)
-                        pendingBytes += CMSampleBufferGetTotalSampleSize(sample)
-                        requestMedia()
+                    guard dataTask === stream else { return }
+                    guard let sample = try builder.sample(for: tag) else { continue }
+                    guard pendingBytes + CMSampleBufferGetTotalSampleSize(sample) <= Self.maximumPendingBytes else {
+                        fail(.reconnecting)
+                        return
                     }
+                    enqueue(sample)
                 }
+            } catch FLVError.unsupportedCodec, FLVError.invalidHeader {
+                fail(.unsupported)
             } catch {
-                reconnect()
+                fail(.reconnecting)
             }
         }
     }
@@ -166,19 +186,27 @@ final class HTTPFLVPlayer: NSObject, URLSessionDataDelegate {
     nonisolated func urlSession(_ session: URLSession, dataTask: URLSessionDataTask,
         didReceive response: URLResponse, completionHandler: @escaping @Sendable (URLSession.ResponseDisposition) -> Void) {
         MainActor.assumeIsolated {
-            guard active, dataTask === stream,
-                  let response = response as? HTTPURLResponse, response.statusCode == 200 else {
+            guard active, dataTask === stream, let response = response as? HTTPURLResponse else {
                 completionHandler(.cancel)
                 return
             }
-            completionHandler(.allow)
+            switch response.statusCode {
+            case 200:
+                completionHandler(.allow)
+            case 401, 403:
+                completionHandler(.cancel)
+                fail(.unauthorized)
+            default:
+                completionHandler(.cancel)
+                fail(.unsupported)
+            }
         }
     }
 
     nonisolated func urlSession(_ session: URLSession, task: URLSessionTask, didCompleteWithError error: Error?) {
         MainActor.assumeIsolated {
             guard active, task === stream else { return }
-            reconnect()
+            fail(with: error)
         }
     }
 

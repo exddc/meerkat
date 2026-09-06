@@ -26,7 +26,9 @@
 		B0000000000000000000000B /* FLVParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000001; };
 		B0000000000000000000000C /* AVCSampleBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000002; };
 		B0000000000000000000000D /* HTTPFLVPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000003; };
-		B00000000000000000000022 = {isa = PBXBuildFile; fileRef = B00000000000000000000021; };
+		B0000000000000000000000E /* PlaybackState.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000004 /* PlaybackState.swift */; };
+		B0000000000000000000000F /* PlaybackClock.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000005 /* PlaybackClock.swift */; };
+		B00000000000000000000022 /* FLVPlaybackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000021 /* FLVPlaybackTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -62,7 +64,9 @@
 		B00000000000000000000001 /* FLVParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FLVParser.swift; sourceTree = "<group>"; };
 		B00000000000000000000002 /* AVCSampleBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AVCSampleBuilder.swift; sourceTree = "<group>"; };
 		B00000000000000000000003 /* HTTPFLVPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HTTPFLVPlayer.swift; sourceTree = "<group>"; };
-		B00000000000000000000021 = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FLVPlaybackTests.swift; sourceTree = "<group>"; };
+		B00000000000000000000004 /* PlaybackState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackState.swift; sourceTree = "<group>"; };
+		B00000000000000000000005 /* PlaybackClock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackClock.swift; sourceTree = "<group>"; };
+		B00000000000000000000021 /* FLVPlaybackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FLVPlaybackTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -110,6 +114,8 @@
 				B00000000000000000000003 /* HTTPFLVPlayer.swift */,
 				B00000000000000000000002 /* AVCSampleBuilder.swift */,
 				B00000000000000000000001 /* FLVParser.swift */,
+				B00000000000000000000004 /* PlaybackState.swift */,
+				B00000000000000000000005 /* PlaybackClock.swift */,
 				A00000000000000000000025 /* CameraGridLayout.swift */,
 				A00000000000000000000012 /* MeerkatApp.swift */,
 				A00000000000000000000013 /* MenuBarPanel.swift */,
@@ -290,6 +296,8 @@
 				B0000000000000000000000D /* HTTPFLVPlayer.swift in Sources */,
 				B0000000000000000000000C /* AVCSampleBuilder.swift in Sources */,
 				B0000000000000000000000B /* FLVParser.swift in Sources */,
+				B0000000000000000000000E /* PlaybackState.swift in Sources */,
+				B0000000000000000000000F /* PlaybackClock.swift in Sources */,
 				A0000000000000000000000F /* CameraGridLayout.swift in Sources */,
 				A00000000000000000000002 /* MeerkatApp.swift in Sources */,
 				A0000000000000000000000D /* Persistence.swift in Sources */,

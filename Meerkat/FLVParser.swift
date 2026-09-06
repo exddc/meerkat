@@ -54,6 +54,7 @@ struct FLVParser {
 
 extension Data {
     func integer(at offset: Int, count: Int) -> UInt32 {
-        self[offset ..< offset + count].reduce(0) { ($0 << 8) | UInt32($1) }
+        let start = startIndex + offset
+        return self[start ..< start + count].reduce(0) { ($0 << 8) | UInt32($1) }
     }
 }
