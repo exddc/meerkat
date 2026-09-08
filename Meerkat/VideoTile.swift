@@ -10,6 +10,8 @@ struct VideoTile: View {
     @State private var playbackState = PlaybackState.connecting
     @State private var isHovering = false
 
+    private let shape = ConcentricRectangle(corners: .concentric(minimum: 12))
+
     init(
         camera: Camera,
         isActive: Bool,
@@ -83,7 +85,7 @@ struct VideoTile: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(.black)
-        .clipShape(.rect(cornerRadius: 12))
+        .clipShape(shape)
         .onHover { isHovering = $0 }
         .onChange(of: isActive) { _, active in
             if !active {

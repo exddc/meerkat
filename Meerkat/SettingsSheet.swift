@@ -161,7 +161,10 @@ private struct SettingsSurface<Content: View>: View {
             .padding(.horizontal, 12)
             .padding(.vertical, 10)
             .frame(maxWidth: .infinity, alignment: .leading)
-            .background(.fill.quaternary, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+            .background(
+                .fill.quaternary,
+                in: ConcentricRectangle(corners: .concentric(minimum: 12))
+            )
     }
 }
 
@@ -246,7 +249,10 @@ private struct CameraRow: View {
             }
         }
         .padding(14)
-        .background(.fill.quaternary, in: RoundedRectangle(cornerRadius: 12, style: .continuous))
+        .background(
+            .fill.quaternary,
+            in: ConcentricRectangle(corners: .concentric(minimum: 12))
+        )
         .onChange(of: input) {
             camera.authenticationRequired = input.requiresAuthentication
             camera.streamURLString = input.streamURL?.absoluteString ?? input.address
