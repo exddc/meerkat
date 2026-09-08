@@ -12,20 +12,24 @@ struct MenuBarPanel: View {
 
     private let playbackEnabled: Bool
     private let panelWidth = CameraGridLayout.panelWidth
-    private let panelMinHeight = CameraGridLayout.panelMinimumHeight
     private var gridPanelHeight: CGFloat {
         CameraGridLayout.panelHeight(for: cameras.count)
     }
 
-    private var desiredContentHeight: CGFloat {
-        showsSettings ? CameraGridLayout.settingsPanelHeight : gridPanelHeight
+    private var gridContentHeight: CGFloat {
+        constrainedHeight(gridPanelHeight)
+    }
+
+    private var settingsContentHeight: CGFloat {
+        constrainedHeight(CameraGridLayout.settingsPanelHeight)
     }
 
     private var contentHeight: CGFloat {
-        CameraGridLayout.constrainedHeight(
-            desiredContentHeight,
-            maximum: maximumContentHeight
-        )
+        showsSettings ? settingsContentHeight : gridContentHeight
+    }
+
+    private func constrainedHeight(_ height: CGFloat) -> CGFloat {
+        CameraGridLayout.constrainedHeight(height, maximum: maximumContentHeight)
     }
 
     init(
@@ -37,12 +41,12 @@ struct MenuBarPanel: View {
     }
 
     var body: some View {
-        HStack(spacing: 0) {
+        HStack(alignment: .top, spacing: 0) {
             cameraGrid
-                .frame(width: panelWidth)
+                .frame(width: panelWidth, height: gridContentHeight)
 
             SettingsSheet(onBack: { setShowsSettings(false) })
-                .frame(width: panelWidth)
+                .frame(width: panelWidth, height: settingsContentHeight)
         }
         .offset(x: showsSettings ? -panelWidth : 0)
         .frame(width: panelWidth, height: contentHeight, alignment: .topLeading)
