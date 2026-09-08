@@ -82,6 +82,37 @@ final class MenuBarInteractionTests: XCTestCase {
     }
 
     @MainActor
+    func testSettingsTransitionKeepsSingleTileStable() {
+        let app = XCUIApplication()
+        app.launch()
+        defer { app.terminate() }
+
+        let statusItem = app.menuBars.statusItems["Meerkat"]
+        XCTAssertTrue(statusItem.waitForExistence(timeout: 5))
+        statusItem.click()
+
+        let settings = app.buttons["settings-button"]
+        XCTAssertTrue(settings.waitForExistence(timeout: 5))
+        settings.click()
+        resetCameras(in: app, count: 1)
+        app.buttons["settings-back"].click()
+
+        let tile = app.buttons.matching(
+            NSPredicate(format: "identifier ENDSWITH '-tile'")
+        ).firstMatch
+        XCTAssertTrue(tile.waitForExistence(timeout: 5))
+        let initialFrame = tile.frame
+
+        settings.click()
+        XCTAssertTrue(app.buttons["settings-back"].waitForExistence(timeout: 5))
+        app.buttons["settings-back"].click()
+
+        XCTAssertTrue(settings.waitForExistence(timeout: 5))
+        XCTAssertEqual(tile.frame, initialFrame)
+        addScreenshot(named: "TW-400 After")
+    }
+
+    @MainActor
     private func resetCameras(in app: XCUIApplication, count: Int) {
         let removeButtons = app.buttons.matching(
             NSPredicate(format: "identifier ENDSWITH '-remove'")
