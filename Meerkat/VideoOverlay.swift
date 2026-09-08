@@ -10,7 +10,7 @@ private struct VideoOverlayModifier: ViewModifier {
     var interactive: Bool
 
     func body(content: Content) -> some View {
-        let shape = RoundedRectangle(cornerRadius: 8, style: .continuous)
+        let shape = ConcentricRectangle(corners: .concentric(minimum: 8))
         let overlay = content.foregroundStyle(.white)
         Group {
             if interactive {
