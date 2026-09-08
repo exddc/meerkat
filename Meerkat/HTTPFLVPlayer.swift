@@ -7,6 +7,10 @@ final class HTTPFLVPlayer: NSObject, URLSessionDataDelegate {
     static let failureRetryDelay = Duration.seconds(30)
     static let stallTimeout: TimeInterval = 10
     static let maximumPendingBytes = 4 * 1024 * 1024
+    var stallTimeout: TimeInterval = HTTPFLVPlayer.stallTimeout
+    var maximumPendingBytes: Int = HTTPFLVPlayer.maximumPendingBytes
+    var retryDelay: Duration = HTTPFLVPlayer.retryDelay
+    var failureRetryDelay: Duration = HTTPFLVPlayer.failureRetryDelay
     private static let untrustedCertificateCodes: [URLError.Code] = [
         .serverCertificateUntrusted, .serverCertificateHasBadDate,
         .serverCertificateHasUnknownRoot, .serverCertificateNotYetValid,
@@ -87,11 +91,12 @@ final class HTTPFLVPlayer: NSObject, URLSessionDataDelegate {
         stream = session.dataTask(with: request)
         lastFrame = Date()
         stream?.resume()
+        let tick = min(1, max(stallTimeout / 5, 0.05))
         watchdog = Task { [weak self] in
             while !Task.isCancelled {
-                try? await Task.sleep(for: .seconds(1))
+                try? await Task.sleep(for: .seconds(tick))
                 guard !Task.isCancelled, let self else { return }
-                if Date().timeIntervalSince(self.lastFrame) > Self.stallTimeout || self.renderer.status == .failed {
+                if Date().timeIntervalSince(self.lastFrame) > self.stallTimeout || self.renderer.status == .failed {
                     self.fail(.reconnecting)
                     return
                 }
@@ -103,7 +108,7 @@ final class HTTPFLVPlayer: NSObject, URLSessionDataDelegate {
         guard active, retry == nil else { return }
         disconnect()
         report(failure)
-        let delay = failure == .reconnecting ? Self.retryDelay : Self.failureRetryDelay
+        let delay = failure == .reconnecting ? retryDelay : failureRetryDelay
         retry = Task { [weak self] in
             try? await Task.sleep(for: delay)
             guard !Task.isCancelled, let self else { return }
@@ -169,7 +174,7 @@ final class HTTPFLVPlayer: NSObject, URLSessionDataDelegate {
                 for tag in try parser.append(data) {
                     guard dataTask === stream else { return }
                     guard let sample = try builder.sample(for: tag) else { continue }
-                    guard pendingBytes + CMSampleBufferGetTotalSampleSize(sample) <= Self.maximumPendingBytes else {
+                    guard pendingBytes + CMSampleBufferGetTotalSampleSize(sample) <= maximumPendingBytes else {
                         fail(.reconnecting)
                         return
                     }

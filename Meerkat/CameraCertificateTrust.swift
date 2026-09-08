@@ -12,7 +12,7 @@ enum CameraCertificateTrust {
         if inet_pton(AF_INET, host, &address) == 1 {
             let value = UInt32(bigEndian: address.s_addr)
             return value >> 24 == 10 || value >> 20 == 0xac1 || value >> 16 == 0xc0a8
-                || value >> 16 == 0xa9fe
+                || value >> 16 == 0xa9fe || value >> 22 == 0x191
         }
         var address6 = in6_addr()
         guard inet_pton(AF_INET6, host, &address6) == 1 else { return false }

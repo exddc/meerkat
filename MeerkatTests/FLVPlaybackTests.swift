@@ -101,11 +101,11 @@ struct FLVPlaybackTests {
     }
 
     @Test func acceptsOnlyConfiguredPrivateCameraCertificate() {
-        for host in ["10.0.0.2", "172.16.0.2", "192.168.1.2", "169.254.1.2", "[fd00::1]"] {
+        for host in ["10.0.0.2", "172.16.0.2", "192.168.1.2", "169.254.1.2", "100.64.0.1", "[fd00::1]"] {
             let url = URL(string: "https://\(host)/flv")!
             #expect(CameraCertificateTrust.allows(url: url, host: url.host!))
         }
-        for host in ["8.8.8.8", "172.32.0.1", "127.0.0.1", "camera.example", "[::1]"] {
+        for host in ["8.8.8.8", "172.32.0.1", "127.0.0.1", "100.63.0.1", "100.128.0.1", "camera.example", "[::1]"] {
             let url = URL(string: "https://\(host)/flv")!
             #expect(!CameraCertificateTrust.allows(url: url, host: url.host!))
         }
@@ -156,8 +156,9 @@ private final class FixtureStreamProtocol: URLProtocol, @unchecked Sendable {
     static let counts = Mutex<[String: (starts: Int, stops: Int)]>([:])
     static let fixture = Data(base64Encoded: "RkxWAQEAAAAJAAAAABIAALcAAAAAAAAAAgAKb25NZXRhRGF0YQgAAAAIAAhkdXJhdGlvbgA/8AAAAAAAAAAFd2lkdGgAQIQAAAAAAAAABmhlaWdodABAdoAAAAAAAAANdmlkZW9kYXRhcmF0ZQAAAAAAAAAAAAAJZnJhbWVyYXRlAEAkAAAAAAAAAAx2aWRlb2NvZGVjaWQAQBwAAAAAAAAAB2VuY29kZXICAAxMYXZmNjMuMS4xMDEACGZpbGVzaXplAECeWAAAAAAAAAAJAAAAwgkAAC4AAAAAAAAAFwAAAAABQsAW/+EAGWdCwBbZAKAv+XARAAADAAEAAAMAFA8WLkgBAAVoy4PLIAAAADkJAAVLAAAAAAAAABcBAAAAAAACcAYF//9s3EXpvebZSLeWLNgg2SPu73gyNjQgLSBjb3JlIDE2NSByMzIyMiBiMzU2MDVhIC0gSC4yNjQvTVBFRy00IEFWQyBjb2RlYyAtIENvcHlsZWZ0IDIwMDMtMjAyNSAtIGh0dHA6Ly93d3cudmlkZW9sYW4ub3JnL3gyNjQuaHRtbCAtIG9wdGlvbnM6IGNhYmFjPTAgcmVmPTMgZGVibG9jaz0xOjA6MCBhbmFseXNlPTB4MToweDExMSBtZT1oZXggc3VibWU9NyBwc3k9MSBwc3lfcmQ9MS4wMDowLjAwIG1peGVkX3JlZj0xIG1lX3JhbmdlPTE2IGNocm9tYV9tZT0xIHRyZWxsaXM9MSA4eDhkY3Q9MCBjcW09MCBkZWFkem9uZT0yMSwxMSBmYXN0X3Bza2lwPTEgY2hyb21hX3FwX29mZnNldD0tMiB0aHJlYWRzPTExIGxvb2thaGVhZF90aHJlYWRzPTEgc2xpY2VkX3RocmVhZHM9MCBucj0wIGRlY2ltYXRlPTEgaW50ZXJsYWNlZD0wIGJsdXJheV9jb21wYXQ9MCBjb25zdHJhaW5lZF9pbnRyYT0wIGJmcmFtZXM9MCB3ZWlnaHRwPTAga2V5aW50PTEwIGtleWludF9taW49MSBzY2VuZWN1dD00MCBpbnRyYV9yZWZyZXNoPTAgcmNfbG9va2FoZWFkPTEwIHJjPWNyZiBtYnRyZWU9MSBjcmY9MjMuMCBxY29tcD0wLjYwIHFwbWluPTAgcXBtYXg9NjkgcXBzdGVwPTQgaXBfcmF0aW89MS40MCBhcT0xOjEuMDAAgAAAAs5liIQP8RigAC0jHAAFXKOAAIYMnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJyddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddeAAAFVgkAABAAAGQAAAAAJwEAAAAAAAAHQZo4H+AOZgAAABsJAAARAADIAAAAACcBAAAAAAAACEGaVAf4A5mAAAAAHAkAABAAASwAAAAAJwEAAAAAAAAHQZpgP8AczAAAABsJAAAQAAGQAAAAACcBAAAAAAAAB0GagD/AHMwAAAAbCQAAEAAB9AAAAAAnAQAAAAAAAAdBmqA/wBzMAAAAGwkAABAAAlgAAAAAJwEAAAAAAAAHQZrAP8AczAAAABsJAAAQAAK8AAAAACcBAAAAAAAAB0Ga4D/AHMwAAAAbCQAAEAADIAAAAAAnAQAAAAAAAAdBmwA7wBzMAAAAGwkAABAAA4QAAAAAJwEAAAAAAAAHQZsgN8AczAAAABsJAAAFAAOEAAAAABcCAAAAAAAAEA==")!
 
-    static let hevcFixture = Data([0x46, 0x4c, 0x56, 1, 1, 0, 0, 0, 9, 0, 0, 0, 0,
-                                   9, 0, 0, 5, 0, 0, 0, 0, 0, 0, 0, 0x1c, 1, 0, 0, 0, 0, 0, 0, 16])
+    static let header = Data([0x46, 0x4c, 0x56, 1, 1, 0, 0, 0, 9, 0, 0, 0, 0])
+    static let hevcFixture = header + Data([9, 0, 0, 5, 0, 0, 0, 0, 0, 0, 0, 0x1c, 1, 0, 0, 0, 0, 0, 0, 16])
+    static let corruptFixture = header + Data([9, 0, 0, 1, 0, 0, 0, 0, 0, 0, 1])
 
     override class func canInit(with request: URLRequest) -> Bool { true }
     override class func canonicalRequest(for request: URLRequest) -> URLRequest { request }
@@ -172,16 +173,35 @@ private final class FixtureStreamProtocol: URLProtocol, @unchecked Sendable {
             client?.urlProtocol(self, didReceive: HTTPURLResponse(url: url, statusCode: url.path == "/unavailable" ? 503 : 401,
                 httpVersion: "HTTP/1.1", headerFields: nil)!, cacheStoragePolicy: .notAllowed)
             client?.urlProtocolDidFinishLoading(self)
+        case "/redirect":
+            let target = URL(string: "https://fixture.test/redirect-target")!
+            let response = HTTPURLResponse(url: url, statusCode: 302, httpVersion: "HTTP/1.1",
+                headerFields: ["Location": target.absoluteString])!
+            client?.urlProtocol(self, wasRedirectedTo: URLRequest(url: target), redirectResponse: response)
+            client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
+            client?.urlProtocolDidFinishLoading(self)
+        case "/corrupt":
+            send(Self.corruptFixture)
+        case "/stall":
+            send(Self.header, finish: false)
         default:
-            client?.urlProtocol(self, didReceive: HTTPURLResponse(url: url, statusCode: 200,
-                httpVersion: "HTTP/1.1", headerFields: ["Content-Type": "video/x-flv"])!, cacheStoragePolicy: .notAllowed)
-            client?.urlProtocol(self, didLoad: url.path == "/hevc" ? Self.hevcFixture : Self.fixture)
+            send(url.path == "/hevc" ? Self.hevcFixture : Self.fixture)
         }
     }
 
     override func stopLoading() {
         let path = request.url!.path
         Self.counts.withLock { $0[path, default: (0, 0)].stops += 1 }
+    }
+
+    private func send(_ data: Data, finish: Bool = false) {
+        let url = request.url!
+        client?.urlProtocol(self, didReceive: HTTPURLResponse(url: url, statusCode: 200,
+            httpVersion: "HTTP/1.1", headerFields: ["Content-Type": "video/x-flv"])!, cacheStoragePolicy: .notAllowed)
+        client?.urlProtocol(self, didLoad: data)
+        if finish {
+            client?.urlProtocolDidFinishLoading(self)
+        }
     }
 }
 
@@ -195,69 +215,137 @@ struct HTTPFLVPlayerTests {
         configuration.protocolClasses = [FixtureStreamProtocol.self]
         var player: HTTPFLVPlayer? = try HTTPFLVPlayer(url: URL(string: "https://fixture.test/stream")!,
             displayLayer: displayLayer, configuration: configuration, onStateChange: { _ in })
-        weak var releasedPlayer = player
+        weak let releasedPlayer = player
         player?.start()
         defer { player?.stop(); view.removeDisplayLayer() }
-        try await Task.sleep(for: .seconds(1))
+        await waitUntil { renderer.status == .rendering }
         #expect(renderer.status == .rendering)
         let timebase = try #require(displayLayer.controlTimebase)
         #expect(CMTimebaseGetRate(timebase) == 1)
         player?.stop()
         view.removeDisplayLayer()
         player = nil
-        try await Task.sleep(for: .milliseconds(200))
+        await waitUntil { releasedPlayer == nil }
         #expect(view.displayLayer == nil)
         #expect(releasedPlayer == nil)
         #expect(FixtureStreamProtocol.counts.withLock { $0["/stream"]?.stops } == 1)
     }
 
     @Test func retriesBeforeFirstFrameAndCancelsPendingRetry() async throws {
-        let displayLayer = AVSampleBufferDisplayLayer()
-        let configuration = URLSessionConfiguration.ephemeral
-        configuration.protocolClasses = [FixtureStreamProtocol.self]
         var states = [PlaybackState]()
-        let player = try HTTPFLVPlayer(url: URL(string: "https://fixture.test/failure")!,
-            displayLayer: displayLayer, configuration: configuration, onStateChange: { states.append($0) })
+        let player = try player(forPath: "/failure") { states.append($0) }
+        player.retryDelay = .milliseconds(50)
         player.start()
         defer { player.stop() }
-        try await Task.sleep(for: .milliseconds(2400))
+        await waitUntil { states.contains(.reconnecting) && starts(for: "/failure") == 2 }
         #expect(states.contains(.reconnecting))
-        #expect(FixtureStreamProtocol.counts.withLock { $0["/failure"]?.starts } == 2)
+        #expect(starts(for: "/failure") == 2)
         player.stop()
-        try await Task.sleep(for: .milliseconds(2400))
-        #expect(FixtureStreamProtocol.counts.withLock { $0["/failure"]?.starts } == 2)
+        await remainsTrue(for: .milliseconds(150)) { starts(for: "/failure") == 2 }
     }
 
     @Test func reportsUnauthorizedAndBacksOff() async throws {
-        let states = try await states(forPath: "/unauthorized")
+        let states = try await states(forPath: "/unauthorized", until: .unauthorized)
         #expect(states.contains(.unauthorized))
         #expect(!states.contains(.reconnecting))
-        #expect(FixtureStreamProtocol.counts.withLock { $0["/unauthorized"]?.starts } == 1)
+        #expect(starts(for: "/unauthorized") == 1)
     }
 
     @Test func retriesTransientHTTPStatusQuickly() async throws {
-        let states = try await states(forPath: "/unavailable")
+        var states = [PlaybackState]()
+        let player = try player(forPath: "/unavailable") { states.append($0) }
+        player.retryDelay = .milliseconds(50)
+        player.start()
+        defer { player.stop() }
+        await waitUntil { states.contains(.reconnecting) && starts(for: "/unavailable") == 2 }
         #expect(states.contains(.reconnecting))
         #expect(!states.contains(.unsupported))
-        #expect(FixtureStreamProtocol.counts.withLock { $0["/unavailable"]?.starts } == 2)
+        #expect(starts(for: "/unavailable") == 2)
     }
 
     @Test func reportsUnsupportedCodecAndBacksOff() async throws {
-        let states = try await states(forPath: "/hevc")
+        let states = try await states(forPath: "/hevc", until: .unsupported)
         #expect(states.contains(.unsupported))
         #expect(!states.contains(.reconnecting))
-        #expect(FixtureStreamProtocol.counts.withLock { $0["/hevc"]?.starts } == 1)
+        #expect(starts(for: "/hevc") == 1)
     }
 
-    private func states(forPath path: String) async throws -> [PlaybackState] {
+    @Test func rejectsHTTPRedirects() async throws {
+        let states = try await states(forPath: "/redirect", until: .unsupported)
+        #expect(states.contains(.unsupported))
+        #expect(!states.contains(.reconnecting))
+        #expect(starts(for: "/redirect") == 1)
+        #expect(starts(for: "/redirect-target") == 0)
+    }
+
+    @Test func reconnectsAfterParserError() async throws {
+        let states = try await states(forPath: "/corrupt", until: .reconnecting)
+        #expect(states.contains(.reconnecting))
+        #expect(!states.contains(.unsupported))
+    }
+
+    @Test func reconnectsWhenPendingBytesExceedCap() async throws {
+        #expect(HTTPFLVPlayer.maximumPendingBytes == 4 * 1024 * 1024)
+        var states = [PlaybackState]()
+        let player = try player(forPath: "/oversize") { states.append($0) }
+        player.maximumPendingBytes = 1
+        player.start()
+        defer { player.stop() }
+        await waitUntil { states.contains(.reconnecting) }
+        #expect(states.contains(.reconnecting))
+        #expect(!states.contains(.unsupported))
+    }
+
+    @Test func reconnectsAfterWatchdogStall() async throws {
+        #expect(HTTPFLVPlayer.stallTimeout == 10)
+        var states = [PlaybackState]()
+        let player = try player(forPath: "/stall") { states.append($0) }
+        player.stallTimeout = 0.2
+        player.start()
+        defer { player.stop() }
+        await waitUntil(timeout: .seconds(2)) { states.contains(.reconnecting) }
+        #expect(states.contains(.reconnecting))
+        #expect(!states.contains(.unsupported))
+    }
+
+    private func states(forPath path: String, until expected: PlaybackState) async throws -> [PlaybackState] {
+        var states = [PlaybackState]()
+        let player = try player(forPath: path) { states.append($0) }
+        player.start()
+        defer { player.stop() }
+        await waitUntil { states.contains(expected) }
+        return states
+    }
+
+    private func player(forPath path: String, onStateChange: @escaping (PlaybackState) -> Void) throws -> HTTPFLVPlayer {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [FixtureStreamProtocol.self]
-        var states = [PlaybackState]()
-        let player = try HTTPFLVPlayer(url: URL(string: "https://fixture.test\(path)")!,
-            displayLayer: AVSampleBufferDisplayLayer(), configuration: configuration) { states.append($0) }
-        player.start()
-        try await Task.sleep(for: .milliseconds(2400))
-        player.stop()
-        return states
+        return try HTTPFLVPlayer(url: URL(string: "https://fixture.test\(path)")!,
+            displayLayer: AVSampleBufferDisplayLayer(), configuration: configuration, onStateChange: onStateChange)
+    }
+
+    private func starts(for path: String) -> Int {
+        FixtureStreamProtocol.counts.withLock { $0[path]?.starts ?? 0 }
+    }
+}
+
+@MainActor
+private func waitUntil(timeout: Duration = .seconds(2), _ condition: @MainActor () -> Bool) async {
+    let clock = ContinuousClock()
+    let deadline = clock.now + timeout
+    while clock.now < deadline {
+        if condition() { return }
+        try? await Task.sleep(for: .milliseconds(10))
+    }
+    #expect(condition(), "condition not met before \(timeout)")
+}
+
+@MainActor
+private func remainsTrue(for duration: Duration, _ condition: @MainActor () -> Bool) async {
+    let clock = ContinuousClock()
+    let deadline = clock.now + duration
+    while clock.now < deadline {
+        #expect(condition())
+        try? await Task.sleep(for: .milliseconds(10))
     }
 }
