@@ -6,6 +6,7 @@ final class Camera {
     var cameraID: UUID
     var name: String
     var streamURLString: String
+    var authenticationRequired: Bool? = nil
     var sortIndex: Int
 
     init(

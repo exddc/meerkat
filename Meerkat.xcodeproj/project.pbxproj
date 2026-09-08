@@ -29,6 +29,7 @@
 		B0000000000000000000000E /* PlaybackState.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000004 /* PlaybackState.swift */; };
 		B0000000000000000000000F /* PlaybackClock.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000005 /* PlaybackClock.swift */; };
 		B00000000000000000000022 /* FLVPlaybackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000021 /* FLVPlaybackTests.swift */; };
+		C00000000000000000000001 /* CameraInput.swift in Sources */ = {isa = PBXBuildFile; fileRef = C00000000000000000000002 /* CameraInput.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -67,6 +68,7 @@
 		B00000000000000000000004 /* PlaybackState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackState.swift; sourceTree = "<group>"; };
 		B00000000000000000000005 /* PlaybackClock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackClock.swift; sourceTree = "<group>"; };
 		B00000000000000000000021 /* FLVPlaybackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FLVPlaybackTests.swift; sourceTree = "<group>"; };
+		C00000000000000000000002 /* CameraInput.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraInput.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -110,6 +112,7 @@
 				A00000000000000000000011 /* AppInfo.swift */,
 				A0000000000000000000001B /* Assets.xcassets */,
 				A0000000000000000000001A /* Camera.swift */,
+				C00000000000000000000002 /* CameraInput.swift */,
 				A00000000000000000000028 /* CameraCertificateTrust.swift */,
 				B00000000000000000000003 /* HTTPFLVPlayer.swift */,
 				B00000000000000000000002 /* AVCSampleBuilder.swift */,
@@ -292,6 +295,7 @@
 			files = (
 				A00000000000000000000001 /* AppInfo.swift in Sources */,
 				A00000000000000000000008 /* Camera.swift in Sources */,
+				C00000000000000000000001 /* CameraInput.swift in Sources */,
 				A0000000000000000000002A /* CameraCertificateTrust.swift in Sources */,
 				B0000000000000000000000D /* HTTPFLVPlayer.swift in Sources */,
 				B0000000000000000000000C /* AVCSampleBuilder.swift in Sources */,
