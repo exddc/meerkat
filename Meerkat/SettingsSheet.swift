@@ -169,6 +169,7 @@ private struct CameraRow: View {
     @Bindable var camera: Camera
     var onRemove: () -> Void
     @State private var input: CameraInput
+    @State private var endpointProbeInput: CameraInput?
     @State private var endpointError: String?
     @FocusState private var addressFocused: Bool
 
@@ -250,11 +251,13 @@ private struct CameraRow: View {
             camera.authenticationRequired = input.requiresAuthentication
             camera.streamURLString = input.streamURL?.absoluteString ?? input.address
             endpointError = nil
+            endpointProbeInput = input
         }
         .onChange(of: addressFocused) {
             if !addressFocused { input.address = CameraInput(input.address).address }
         }
-        .task(id: input) {
+        .task(id: endpointProbeInput) {
+            guard let input = endpointProbeInput else { return }
             guard !input.address.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
             do {
                 try await Task.sleep(for: .milliseconds(700))

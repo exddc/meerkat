@@ -45,6 +45,7 @@ struct CameraInput: Equatable {
             items.append(URLQueryItem(name: "password", value: password))
         }
         components.queryItems = items.isEmpty ? nil : items
+        components.percentEncodedQuery = components.percentEncodedQuery?.replacingOccurrences(of: "+", with: "%2B")
         components.user = nil
         components.password = nil
         components.fragment = nil

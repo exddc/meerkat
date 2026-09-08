@@ -62,6 +62,19 @@ struct CameraInputTests {
         #expect(url.absoluteString.contains("stream=channel2_sub.bcs"))
     }
 
+    @Test func percentEncodesPlusInCredentials() throws {
+        var input = CameraInput("192.168.1.25")
+        input.username = "viewer+admin"
+        input.password = "secret+value"
+
+        let url = try #require(input.streamURL)
+        #expect(url.absoluteString.contains("user=viewer%2Badmin"))
+        #expect(url.absoluteString.contains("password=secret%2Bvalue"))
+        let items = URLComponents(url: url, resolvingAgainstBaseURL: false)?.queryItems ?? []
+        #expect(items.contains(URLQueryItem(name: "user", value: "viewer+admin")))
+        #expect(items.contains(URLQueryItem(name: "password", value: "secret+value")))
+    }
+
     @Test func authToggleRemovesCredentialsAndPasteReactivatesIt() throws {
         var input = CameraInput("https://viewer:secret@192.168.1.25/flv")
         #expect(input.username == "viewer")
