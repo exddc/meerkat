@@ -8,6 +8,7 @@ struct SettingsSheet: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Camera.sortIndex) private var cameras: [Camera]
     @AppStorage(AppInfo.cameraLabelVisibilityKey) private var cameraLabelVisibility = CameraLabelVisibility.always
+    @State private var cameraPendingRemoval: Camera?
     @State private var saveErrorMessage: String?
 
     var body: some View {
@@ -30,7 +31,7 @@ struct SettingsSheet: View {
 
                         ForEach(cameras) { camera in
                             CameraRow(camera: camera) {
-                                remove(camera)
+                                cameraPendingRemoval = camera
                             }
                         }
                     }
@@ -71,6 +72,13 @@ struct SettingsSheet: View {
         .frame(maxWidth: .infinity, maxHeight: .infinity)
         .background(.background)
         .background(SettingsFocusDismissal())
+        .allowsHitTesting(cameraPendingRemoval == nil)
+        .accessibilityHidden(cameraPendingRemoval != nil)
+        .overlay {
+            if let camera = cameraPendingRemoval {
+                removalConfirmation(for: camera)
+            }
+        }
         .alert(
             "Could not save cameras",
             isPresented: Binding(
@@ -125,6 +133,61 @@ struct SettingsSheet: View {
     private func remove(_ camera: Camera) {
         modelContext.delete(camera)
         saveChanges()
+    }
+
+    private func displayName(for camera: Camera) -> String {
+        camera.name.isEmpty ? "this camera" : "“\(camera.name)”"
+    }
+
+    private func removalConfirmation(for camera: Camera) -> some View {
+        ZStack {
+            Color.black.opacity(0.2)
+
+            VStack(alignment: .center, spacing: 16) {
+                Image(systemName: "trash.fill")
+                    .font(.system(size: 20, weight: .semibold))
+                    .foregroundStyle(.red)
+                    .frame(width: 40, height: 40)
+                    .background(.red.opacity(0.12), in: Circle())
+
+                VStack(spacing: 6) {
+                    Text("Remove \(displayName(for: camera))?")
+                        .font(.headline)
+
+                    Text("This camera will be removed from Meerkat. This action can’t be undone.")
+                        .font(.subheadline)
+                        .foregroundStyle(.secondary)
+                        .multilineTextAlignment(.center)
+                        .fixedSize(horizontal: false, vertical: true)
+                }
+
+                HStack(spacing: 8) {
+                    Button("Cancel") {
+                        cameraPendingRemoval = nil
+                    }
+                    .keyboardShortcut(.cancelAction)
+                    .accessibilityIdentifier("cancel-camera-removal")
+
+                    Button("Remove Camera", role: .destructive) {
+                        cameraPendingRemoval = nil
+                        remove(camera)
+                    }
+                    .buttonStyle(.borderedProminent)
+                    .tint(.red)
+                    .accessibilityIdentifier("confirm-camera-removal")
+                }
+                .frame(maxWidth: .infinity, alignment: .center)
+            }
+            .padding(20)
+            .frame(width: 320)
+            .background(.regularMaterial, in: RoundedRectangle(cornerRadius: 16))
+            .shadow(color: .black.opacity(0.18), radius: 20, y: 8)
+            .accessibilityElement(children: .contain)
+            .accessibilityIdentifier("camera-removal-dialog")
+        }
+        .onExitCommand {
+            cameraPendingRemoval = nil
+        }
     }
 
     private func saveChanges() {
