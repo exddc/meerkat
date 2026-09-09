@@ -147,15 +147,16 @@ struct MenuBarPanel: View {
             VideoTile(
                 camera: camera,
                 isActive: isVisible
+                    && !showsSettings
                     && (expandedCameraID == nil || expandedCameraID == camera.cameraID),
                 playbackEnabled: playbackEnabled
             )
             .contentShape(.rect)
         }
         .buttonStyle(.plain)
-        .disabled(
-            expandedCameraID == nil
-                && !CameraGridLayout.canExpandTiles(for: cameras.count)
+        .allowsHitTesting(
+            expandedCameraID != nil
+                || CameraGridLayout.canExpandTiles(for: cameras.count)
         )
         .accessibilityLabel(camera.name)
         .accessibilityHint(

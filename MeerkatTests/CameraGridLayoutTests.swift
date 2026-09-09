@@ -29,7 +29,7 @@ struct CameraGridLayoutTests {
     func growsForAdditionalRows() {
         #expect(CameraGridLayout.settingsPanelHeight == 484)
         #expect(CameraGridLayout.panelHeight(for: 2) == 475.5)
-        #expect(CameraGridLayout.panelHeight(for: 4) == CameraGridLayout.panelMinimumHeight)
+        #expect(CameraGridLayout.panelHeight(for: 4) == 241.5)
         #expect(CameraGridLayout.panelHeight(for: 5) == 360.25)
     }
 
