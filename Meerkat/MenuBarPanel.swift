@@ -34,7 +34,7 @@ struct MenuBarPanel: View {
     }
 
     init(
-        ingestStore: CameraIngestStore = CameraIngestStore(),
+        ingestStore: CameraIngestStore,
         playbackEnabled: Bool = true,
         showsSettings: Bool = false
     ) {
@@ -357,31 +357,31 @@ private struct PanelWindowObserver: NSViewRepresentable {
 }
 
 #Preview("Empty Light") {
-    MenuBarPanel(playbackEnabled: false)
+    MenuBarPanel(ingestStore: CameraIngestStore(), playbackEnabled: false)
         .modelContainer(Persistence.preview(cameras: []))
         .preferredColorScheme(.light)
 }
 
 #Preview("Empty Dark") {
-    MenuBarPanel(playbackEnabled: false)
+    MenuBarPanel(ingestStore: CameraIngestStore(), playbackEnabled: false)
         .modelContainer(Persistence.preview(cameras: []))
         .preferredColorScheme(.dark)
 }
 
 #Preview("Light") {
-    MenuBarPanel(playbackEnabled: false)
+    MenuBarPanel(ingestStore: CameraIngestStore(), playbackEnabled: false)
         .modelContainer(Persistence.preview())
         .preferredColorScheme(.light)
 }
 
 #Preview("Dark") {
-    MenuBarPanel(playbackEnabled: false)
+    MenuBarPanel(ingestStore: CameraIngestStore(), playbackEnabled: false)
         .modelContainer(Persistence.preview())
         .preferredColorScheme(.dark)
 }
 
 #Preview("Two Cameras") {
-    MenuBarPanel(playbackEnabled: false)
+    MenuBarPanel(ingestStore: CameraIngestStore(), playbackEnabled: false)
         .modelContainer(Persistence.preview(cameras: [
             ("Camera 1", "https://camera.test/1"),
             ("Camera 2", "https://camera.test/2"),
@@ -389,7 +389,7 @@ private struct PanelWindowObserver: NSViewRepresentable {
 }
 
 #Preview("Five Cameras") {
-    MenuBarPanel(playbackEnabled: false)
+    MenuBarPanel(ingestStore: CameraIngestStore(), playbackEnabled: false)
         .modelContainer(Persistence.preview(cameras: [
             ("Camera 1", "https://camera.test/1"),
             ("Camera 2", "https://camera.test/2"),
@@ -400,13 +400,21 @@ private struct PanelWindowObserver: NSViewRepresentable {
 }
 
 #Preview("Settings Open Light") {
-    MenuBarPanel(playbackEnabled: false, showsSettings: true)
+    MenuBarPanel(
+        ingestStore: CameraIngestStore(),
+        playbackEnabled: false,
+        showsSettings: true
+    )
         .modelContainer(Persistence.preview(cameras: []))
         .preferredColorScheme(.light)
 }
 
 #Preview("Settings Open Dark") {
-    MenuBarPanel(playbackEnabled: false, showsSettings: true)
+    MenuBarPanel(
+        ingestStore: CameraIngestStore(),
+        playbackEnabled: false,
+        showsSettings: true
+    )
         .modelContainer(Persistence.preview(cameras: []))
         .preferredColorScheme(.dark)
 }

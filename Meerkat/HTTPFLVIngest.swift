@@ -111,6 +111,7 @@ final class HTTPFLVIngest: NSObject, URLSessionDataDelegate {
         let timebase = try CMTimebase(sourceClock: CMClock.hostTimeClock)
         displayLayer.controlTimebase = timebase
         display = DisplayContext(
+            layer: displayLayer,
             renderer: displayLayer.sampleBufferRenderer,
             timebase: timebase
         )
@@ -124,13 +125,17 @@ final class HTTPFLVIngest: NSObject, URLSessionDataDelegate {
             )
             self.display = display
         }
-        for sample in gop.samples {
-            try queueForDisplay(sample, displayImmediately: true)
+        for (index, sample) in gop.samples.enumerated() {
+            try queueForDisplay(
+                sample,
+                displayImmediately: index == gop.samples.indices.last
+            )
         }
     }
 
-    func detachDisplay() {
+    func detachDisplay(_ displayLayer: AVSampleBufferDisplayLayer? = nil) {
         guard let display else { return }
+        guard displayLayer == nil || display.layer === displayLayer else { return }
         display.renderer.stopRequestingMediaData()
         requestingMedia = false
         pendingSamples.removeAll(keepingCapacity: false)
@@ -367,6 +372,7 @@ final class HTTPFLVIngest: NSObject, URLSessionDataDelegate {
 }
 
 private struct DisplayContext {
+    let layer: AVSampleBufferDisplayLayer
     let renderer: AVSampleBufferVideoRenderer
     let timebase: CMTimebase
     var timeline = DisplayTimeline()

@@ -81,13 +81,16 @@ struct VideoPlayerView: NSViewRepresentable {
                     self?.schedule(state)
                 }
             } catch {
+                stop(view: view)
                 schedule(.reconnecting)
             }
         }
 
         func stop(view: SampleBufferVideoView) {
             generation = UUID()
-            ingest?.detachDisplay()
+            if let displayLayer = view.displayLayer {
+                ingest?.detachDisplay(displayLayer)
+            }
             ingest = nil
             view.removeDisplayLayer()
         }
