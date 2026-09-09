@@ -100,6 +100,55 @@ struct FLVPlaybackTests {
         }
     }
 
+    @Test func gopBufferReplacesFramesAtNextIDR() throws {
+        var builder = AVCSampleBuilder()
+        _ = try builder.sample(for: sequence())
+        var buffer = AVCGOPBuffer()
+
+        for (timestamp, keyframe) in [(100, true), (133, false), (200, true), (233, false)] {
+            let nalType: UInt8 = keyframe ? 0x65 : 0x41
+            let frameType: UInt8 = keyframe ? 0x17 : 0x27
+            let sample = try #require(try builder.sample(for: FLVTag(
+                type: FLVTag.video,
+                timestamp: UInt32(timestamp),
+                payload: Data([frameType, 1, 0, 0, 0, 0, 0, 0, 2, nalType, 0x88])
+            )))
+            buffer.append(sample)
+        }
+
+        #expect(buffer.samples.count == 2)
+        #expect(buffer.samples.map(CMSampleBufferGetDecodeTimeStamp) == [
+            CMTime(value: 200, timescale: 1000),
+            CMTime(value: 233, timescale: 1000),
+        ])
+        #expect(buffer.byteCount == buffer.samples.reduce(0) {
+            $0 + CMSampleBufferGetTotalSampleSize($1)
+        })
+        #expect(buffer.samples.allSatisfy { CMSampleBufferGetFormatDescription($0) != nil })
+    }
+
+    @Test func gopBufferDropsAnIncompleteOversizedGOP() throws {
+        var builder = AVCSampleBuilder()
+        _ = try builder.sample(for: sequence())
+        let idr = try #require(try builder.sample(for: FLVTag(
+            type: FLVTag.video,
+            timestamp: 100,
+            payload: Data([0x17, 1, 0, 0, 0, 0, 0, 0, 2, 0x65, 0x88])
+        )))
+        let delta = try #require(try builder.sample(for: FLVTag(
+            type: FLVTag.video,
+            timestamp: 133,
+            payload: Data([0x27, 1, 0, 0, 0, 0, 0, 0, 2, 0x41, 0x88])
+        )))
+        var buffer = AVCGOPBuffer(maximumBytes: CMSampleBufferGetTotalSampleSize(idr))
+
+        buffer.append(idr)
+        buffer.append(delta)
+
+        #expect(buffer.samples.isEmpty)
+        #expect(buffer.byteCount == 0)
+    }
+
     @Test func acceptsOnlyConfiguredPrivateCameraCertificate() {
         for host in ["10.0.0.2", "172.16.0.2", "192.168.1.2", "169.254.1.2", "100.64.0.1", "[fd00::1]"] {
             let url = URL(string: "https://\(host)/flv")!
@@ -113,43 +162,6 @@ struct FLVPlaybackTests {
         #expect(!CameraCertificateTrust.allows(url: URL(string: "http://192.168.1.2/flv")!, host: "192.168.1.2"))
     }
 
-    @Test func reanchorsClockOutsideTolerance() {
-        var clock = PlaybackClock()
-        let ms = { (value: Int64) in CMTime(value: value, timescale: 1000) }
-        #expect(clock.anchor(decode: ms(1000), now: ms(0)) == ms(700))
-        #expect(clock.anchor(decode: ms(1500), now: ms(1000)) == nil)
-        #expect(clock.anchor(decode: ms(950), now: ms(1000)) == nil)
-        #expect(clock.anchor(decode: ms(3000), now: ms(1000)) == ms(2700))
-        #expect(clock.anchor(decode: ms(800), now: ms(1000)) == ms(500))
-        clock.reset()
-        #expect(clock.anchor(decode: ms(1200), now: ms(1000)) == ms(900))
-    }
-
-    @Test func reorderedFramesDoNotRewindClock() throws {
-        var builder = AVCSampleBuilder()
-        _ = try builder.sample(for: sequence())
-        let nal = Data([0, 0, 0, 2, 0x65, 0x88])
-        var clock = PlaybackClock()
-        var now = CMTime(value: 0, timescale: 1000)
-        var anchors = 0
-        var previousPresentation: CMTime?
-        var sawReorder = false
-        for (index, composition) in [UInt32(500), 0, 500, 0, 500, 0].enumerated() {
-            let frame = FLVTag(type: 9, timestamp: UInt32(index) * 33,
-                payload: Data([0x17, 1, UInt8(composition >> 16), UInt8((composition >> 8) & 255), UInt8(composition & 255)]) + nal)
-            let sample = try #require(try builder.sample(for: frame))
-            let presentation = CMSampleBufferGetPresentationTimeStamp(sample)
-            if let previousPresentation, presentation < previousPresentation { sawReorder = true }
-            previousPresentation = presentation
-            if let anchor = clock.anchor(decode: CMSampleBufferGetDecodeTimeStamp(sample), now: now) {
-                now = anchor
-                anchors += 1
-            }
-            now = now + CMTime(value: 33, timescale: 1000)
-        }
-        #expect(sawReorder)
-        #expect(anchors == 1)
-    }
 }
 
 private final class FixtureStreamProtocol: URLProtocol, @unchecked Sendable {
@@ -206,41 +218,50 @@ private final class FixtureStreamProtocol: URLProtocol, @unchecked Sendable {
 }
 
 @MainActor
-struct HTTPFLVPlayerTests {
-    @Test func decodesFixtureAndReleasesSessionOnStop() async throws {
+struct HTTPFLVIngestTests {
+    @Test func buffersWithoutEnqueueAndKeepsSessionAfterDisplayDetach() async throws {
         let view = SampleBufferVideoView(frame: NSRect(x: 0, y: 0, width: 640, height: 360))
         let displayLayer = view.prepareLayer()
-        let renderer = displayLayer.sampleBufferRenderer
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [FixtureStreamProtocol.self]
-        var player: HTTPFLVPlayer? = try HTTPFLVPlayer(url: URL(string: "https://fixture.test/stream")!,
-            displayLayer: displayLayer, configuration: configuration, onStateChange: { _ in })
-        weak let releasedPlayer = player
-        player?.start()
-        defer { player?.stop(); view.removeDisplayLayer() }
-        await waitUntil { renderer.status == .rendering }
-        #expect(renderer.status == .rendering)
+        var ingest: HTTPFLVIngest? = HTTPFLVIngest(
+            url: URL(string: "https://fixture.test/hidden")!,
+            configuration: configuration
+        )
+        weak let releasedIngest = ingest
+        ingest?.start()
+        defer { ingest?.stop(); view.removeDisplayLayer() }
+        await waitUntil { (ingest?.bufferedSampleCount ?? 0) > 0 }
+        #expect(ingest?.enqueuedSampleCount == 0)
+        #expect(FixtureStreamProtocol.counts.withLock { $0["/hidden"]?.stops ?? 0 } == 0)
+
+        try ingest?.attachDisplay(displayLayer) { _ in }
+        await waitUntil { (ingest?.enqueuedSampleCount ?? 0) > 0 }
         let timebase = try #require(displayLayer.controlTimebase)
         #expect(CMTimebaseGetRate(timebase) == 1)
-        player?.stop()
+        ingest?.detachDisplay()
         view.removeDisplayLayer()
-        player = nil
-        await waitUntil { releasedPlayer == nil }
         #expect(view.displayLayer == nil)
-        #expect(releasedPlayer == nil)
-        #expect(FixtureStreamProtocol.counts.withLock { $0["/stream"]?.stops } == 1)
+        #expect((ingest?.bufferedSampleCount ?? 0) > 0)
+        #expect(FixtureStreamProtocol.counts.withLock { $0["/hidden"]?.stops ?? 0 } == 0)
+
+        ingest?.stop()
+        ingest = nil
+        await waitUntil { releasedIngest == nil }
+        #expect(releasedIngest == nil)
+        #expect(FixtureStreamProtocol.counts.withLock { $0["/hidden"]?.stops } == 1)
     }
 
     @Test func retriesBeforeFirstFrameAndCancelsPendingRetry() async throws {
         var states = [PlaybackState]()
-        let player = try player(forPath: "/failure") { states.append($0) }
-        player.retryDelay = .milliseconds(50)
-        player.start()
-        defer { player.stop() }
+        let ingest = try ingest(forPath: "/failure") { states.append($0) }
+        ingest.retryDelay = .milliseconds(50)
+        ingest.start()
+        defer { ingest.stop() }
         await waitUntil { states.contains(.reconnecting) && starts(for: "/failure") == 2 }
         #expect(states.contains(.reconnecting))
         #expect(starts(for: "/failure") == 2)
-        player.stop()
+        ingest.stop()
         await remainsTrue(for: .milliseconds(150)) { starts(for: "/failure") == 2 }
     }
 
@@ -253,10 +274,10 @@ struct HTTPFLVPlayerTests {
 
     @Test func retriesTransientHTTPStatusQuickly() async throws {
         var states = [PlaybackState]()
-        let player = try player(forPath: "/unavailable") { states.append($0) }
-        player.retryDelay = .milliseconds(50)
-        player.start()
-        defer { player.stop() }
+        let ingest = try ingest(forPath: "/unavailable") { states.append($0) }
+        ingest.retryDelay = .milliseconds(50)
+        ingest.start()
+        defer { ingest.stop() }
         await waitUntil { states.contains(.reconnecting) && starts(for: "/unavailable") == 2 }
         #expect(states.contains(.reconnecting))
         #expect(!states.contains(.unsupported))
@@ -285,24 +306,24 @@ struct HTTPFLVPlayerTests {
     }
 
     @Test func reconnectsWhenPendingBytesExceedCap() async throws {
-        #expect(HTTPFLVPlayer.maximumPendingBytes == 4 * 1024 * 1024)
+        #expect(HTTPFLVIngest.maximumPendingBytes == 4 * 1024 * 1024)
         var states = [PlaybackState]()
-        let player = try player(forPath: "/oversize") { states.append($0) }
-        player.maximumPendingBytes = 1
-        player.start()
-        defer { player.stop() }
+        let ingest = try ingest(forPath: "/oversize") { states.append($0) }
+        ingest.maximumPendingBytes = 1
+        ingest.start()
+        defer { ingest.stop() }
         await waitUntil { states.contains(.reconnecting) }
         #expect(states.contains(.reconnecting))
         #expect(!states.contains(.unsupported))
     }
 
     @Test func reconnectsAfterWatchdogStall() async throws {
-        #expect(HTTPFLVPlayer.stallTimeout == 10)
+        #expect(HTTPFLVIngest.stallTimeout == 10)
         var states = [PlaybackState]()
-        let player = try player(forPath: "/stall") { states.append($0) }
-        player.stallTimeout = 0.2
-        player.start()
-        defer { player.stop() }
+        let ingest = try ingest(forPath: "/stall") { states.append($0) }
+        ingest.stallTimeout = 0.2
+        ingest.start()
+        defer { ingest.stop() }
         await waitUntil(timeout: .seconds(2)) { states.contains(.reconnecting) }
         #expect(states.contains(.reconnecting))
         #expect(!states.contains(.unsupported))
@@ -310,22 +331,69 @@ struct HTTPFLVPlayerTests {
 
     private func states(forPath path: String, until expected: PlaybackState) async throws -> [PlaybackState] {
         var states = [PlaybackState]()
-        let player = try player(forPath: path) { states.append($0) }
-        player.start()
-        defer { player.stop() }
+        let ingest = try ingest(forPath: path) { states.append($0) }
+        ingest.start()
+        defer { ingest.stop() }
         await waitUntil { states.contains(expected) }
         return states
     }
 
-    private func player(forPath path: String, onStateChange: @escaping (PlaybackState) -> Void) throws -> HTTPFLVPlayer {
+    private func ingest(
+        forPath path: String,
+        onStateChange: @escaping (PlaybackState) -> Void
+    ) throws -> HTTPFLVIngest {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [FixtureStreamProtocol.self]
-        return try HTTPFLVPlayer(url: URL(string: "https://fixture.test\(path)")!,
-            displayLayer: AVSampleBufferDisplayLayer(), configuration: configuration, onStateChange: onStateChange)
+        let ingest = HTTPFLVIngest(
+            url: URL(string: "https://fixture.test\(path)")!,
+            configuration: configuration
+        )
+        try ingest.attachDisplay(AVSampleBufferDisplayLayer(), onStateChange: onStateChange)
+        return ingest
     }
 
     private func starts(for path: String) -> Int {
         FixtureStreamProtocol.counts.withLock { $0[path]?.starts ?? 0 }
+    }
+}
+
+@MainActor
+struct CameraIngestStoreTests {
+    @Test func startsOneIngestPerCameraUntilCatalogUnload() async {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [FixtureStreamProtocol.self]
+        let store = CameraIngestStore(sessionConfiguration: configuration)
+        let cameras = [
+            CameraIngestConfiguration(
+                cameraID: UUID(),
+                url: URL(string: "https://fixture.test/catalog-one")!
+            ),
+            CameraIngestConfiguration(
+                cameraID: UUID(),
+                url: URL(string: "https://fixture.test/catalog-two")!
+            ),
+        ]
+
+        store.synchronize(cameras)
+        await waitUntil {
+            starts(for: "/catalog-one") == 1 && starts(for: "/catalog-two") == 1
+        }
+        store.synchronize(cameras)
+        #expect(starts(for: "/catalog-one") == 1)
+        #expect(starts(for: "/catalog-two") == 1)
+
+        store.synchronize([])
+        await waitUntil {
+            stops(for: "/catalog-one") == 1 && stops(for: "/catalog-two") == 1
+        }
+    }
+
+    private func starts(for path: String) -> Int {
+        FixtureStreamProtocol.counts.withLock { $0[path]?.starts ?? 0 }
+    }
+
+    private func stops(for path: String) -> Int {
+        FixtureStreamProtocol.counts.withLock { $0[path]?.stops ?? 0 }
     }
 }
 

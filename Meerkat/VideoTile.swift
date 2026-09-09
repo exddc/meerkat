@@ -2,6 +2,7 @@ import SwiftUI
 
 struct VideoTile: View {
     let camera: Camera
+    let ingest: HTTPFLVIngest?
     let isActive: Bool
     let playbackEnabled: Bool
 
@@ -14,10 +15,12 @@ struct VideoTile: View {
 
     init(
         camera: Camera,
+        ingest: HTTPFLVIngest? = nil,
         isActive: Bool,
         playbackEnabled: Bool = true
     ) {
         self.camera = camera
+        self.ingest = ingest
         self.isActive = isActive
         self.playbackEnabled = playbackEnabled
     }
@@ -35,7 +38,7 @@ struct VideoTile: View {
             if playbackEnabled {
                 VideoPlayerView(
                     camera: camera,
-                    streamURLString: camera.streamURLString,
+                    ingest: ingest,
                     isActive: isActive,
                     onStateChange: { playbackState = $0 }
                 )

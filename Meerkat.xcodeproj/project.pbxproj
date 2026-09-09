@@ -25,11 +25,11 @@
 		A0000000000000000000002A /* CameraCertificateTrust.swift in Sources */ = {isa = PBXBuildFile; fileRef = A00000000000000000000028 /* CameraCertificateTrust.swift */; };
 		B0000000000000000000000B /* FLVParser.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000001; };
 		B0000000000000000000000C /* AVCSampleBuilder.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000002; };
-		B0000000000000000000000D /* HTTPFLVPlayer.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000003; };
+		B0000000000000000000000D /* HTTPFLVIngest.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000003; };
 		B0000000000000000000000E /* PlaybackState.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000004 /* PlaybackState.swift */; };
-		B0000000000000000000000F /* PlaybackClock.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000005 /* PlaybackClock.swift */; };
 		B00000000000000000000022 /* FLVPlaybackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000021 /* FLVPlaybackTests.swift */; };
 		C00000000000000000000001 /* CameraInput.swift in Sources */ = {isa = PBXBuildFile; fileRef = C00000000000000000000002 /* CameraInput.swift */; };
+		C00000000000000000000003 /* CameraIngestStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C00000000000000000000004 /* CameraIngestStore.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -64,11 +64,11 @@
 		A00000000000000000000028 /* CameraCertificateTrust.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraCertificateTrust.swift; sourceTree = "<group>"; };
 		B00000000000000000000001 /* FLVParser.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FLVParser.swift; sourceTree = "<group>"; };
 		B00000000000000000000002 /* AVCSampleBuilder.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = AVCSampleBuilder.swift; sourceTree = "<group>"; };
-		B00000000000000000000003 /* HTTPFLVPlayer.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HTTPFLVPlayer.swift; sourceTree = "<group>"; };
+		B00000000000000000000003 /* HTTPFLVIngest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = HTTPFLVIngest.swift; sourceTree = "<group>"; };
 		B00000000000000000000004 /* PlaybackState.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackState.swift; sourceTree = "<group>"; };
-		B00000000000000000000005 /* PlaybackClock.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = PlaybackClock.swift; sourceTree = "<group>"; };
 		B00000000000000000000021 /* FLVPlaybackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FLVPlaybackTests.swift; sourceTree = "<group>"; };
 		C00000000000000000000002 /* CameraInput.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraInput.swift; sourceTree = "<group>"; };
+		C00000000000000000000004 /* CameraIngestStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraIngestStore.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -113,12 +113,12 @@
 				A0000000000000000000001B /* Assets.xcassets */,
 				A0000000000000000000001A /* Camera.swift */,
 				C00000000000000000000002 /* CameraInput.swift */,
+				C00000000000000000000004 /* CameraIngestStore.swift */,
 				A00000000000000000000028 /* CameraCertificateTrust.swift */,
-				B00000000000000000000003 /* HTTPFLVPlayer.swift */,
+				B00000000000000000000003 /* HTTPFLVIngest.swift */,
 				B00000000000000000000002 /* AVCSampleBuilder.swift */,
 				B00000000000000000000001 /* FLVParser.swift */,
 				B00000000000000000000004 /* PlaybackState.swift */,
-				B00000000000000000000005 /* PlaybackClock.swift */,
 				A00000000000000000000025 /* CameraGridLayout.swift */,
 				A00000000000000000000012 /* MeerkatApp.swift */,
 				A00000000000000000000013 /* MenuBarPanel.swift */,
@@ -296,12 +296,12 @@
 				A00000000000000000000001 /* AppInfo.swift in Sources */,
 				A00000000000000000000008 /* Camera.swift in Sources */,
 				C00000000000000000000001 /* CameraInput.swift in Sources */,
+				C00000000000000000000003 /* CameraIngestStore.swift in Sources */,
 				A0000000000000000000002A /* CameraCertificateTrust.swift in Sources */,
-				B0000000000000000000000D /* HTTPFLVPlayer.swift in Sources */,
+				B0000000000000000000000D /* HTTPFLVIngest.swift in Sources */,
 				B0000000000000000000000C /* AVCSampleBuilder.swift in Sources */,
 				B0000000000000000000000B /* FLVParser.swift in Sources */,
 				B0000000000000000000000E /* PlaybackState.swift in Sources */,
-				B0000000000000000000000F /* PlaybackClock.swift in Sources */,
 				A0000000000000000000000F /* CameraGridLayout.swift in Sources */,
 				A00000000000000000000002 /* MeerkatApp.swift in Sources */,
 				A0000000000000000000000D /* Persistence.swift in Sources */,

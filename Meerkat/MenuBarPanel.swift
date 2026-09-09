@@ -9,6 +9,7 @@ struct MenuBarPanel: View {
     @State private var isVisible = false
     @State private var maximumContentHeight: CGFloat?
     @State private var showsSettings: Bool
+    @ObservedObject private var ingestStore: CameraIngestStore
 
     private let playbackEnabled: Bool
     private let panelWidth = CameraGridLayout.panelWidth
@@ -33,11 +34,17 @@ struct MenuBarPanel: View {
     }
 
     init(
+        ingestStore: CameraIngestStore = CameraIngestStore(),
         playbackEnabled: Bool = true,
         showsSettings: Bool = false
     ) {
+        self.ingestStore = ingestStore
         self.playbackEnabled = playbackEnabled
         _showsSettings = State(initialValue: showsSettings)
+    }
+
+    private var ingestConfigurations: [CameraIngestConfiguration] {
+        cameras.map(CameraIngestConfiguration.init)
     }
 
     var body: some View {
@@ -62,7 +69,11 @@ struct MenuBarPanel: View {
             )
         }
         .onAppear {
+            synchronizeIngests()
             isVisible = true
+        }
+        .onChange(of: ingestConfigurations) {
+            synchronizeIngests()
         }
         .onDisappear {
             isVisible = false
@@ -146,6 +157,7 @@ struct MenuBarPanel: View {
         } label: {
             VideoTile(
                 camera: camera,
+                ingest: ingestStore.ingest(for: camera.cameraID),
                 isActive: isVisible
                     && (expandedCameraID == nil || expandedCameraID == camera.cameraID),
                 playbackEnabled: playbackEnabled
@@ -166,6 +178,10 @@ struct MenuBarPanel: View {
                     : ""
         )
         .accessibilityIdentifier("\(camera.cameraID.uuidString)-tile")
+    }
+
+    private func synchronizeIngests() {
+        ingestStore.synchronize(playbackEnabled ? ingestConfigurations : [])
     }
 
     private func setExpandedCamera(_ camera: Camera) {

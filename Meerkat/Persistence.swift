@@ -1,3 +1,4 @@
+import Foundation
 import SwiftData
 
 enum Persistence {
@@ -11,6 +12,12 @@ enum Persistence {
             fatalError("Failed to create model container: \(error)")
         }
     }()
+
+    @MainActor
+    static func cameraIngestConfigurations() -> [CameraIngestConfiguration] {
+        let descriptor = FetchDescriptor<Camera>(sortBy: [SortDescriptor(\Camera.sortIndex)])
+        return (try? container.mainContext.fetch(descriptor))?.map(CameraIngestConfiguration.init) ?? []
+    }
 
     @MainActor
     static func preview(
