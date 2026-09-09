@@ -34,7 +34,7 @@ final class SampleBufferVideoView: NSView {
 
 struct VideoPlayerView: NSViewRepresentable {
     let camera: Camera
-    let streamURLString: String
+    let ingest: HTTPFLVIngest?
     let isActive: Bool
     let onStateChange: @MainActor (PlaybackState) -> Void
 
@@ -49,7 +49,7 @@ struct VideoPlayerView: NSViewRepresentable {
         view.setAccessibilityRole(.group)
         view.setAccessibilityLabel("\(camera.name) video")
         view.setAccessibilityIdentifier("\(camera.cameraID.uuidString)-video")
-        context.coordinator.update(url: camera.playableStreamURL, active: isActive,
+        context.coordinator.update(ingest: ingest, active: isActive,
                                    view: view, onStateChange: onStateChange)
     }
 
@@ -59,39 +59,39 @@ struct VideoPlayerView: NSViewRepresentable {
 
     @MainActor
     final class Coordinator {
-        private var player: HTTPFLVPlayer?
-        private var url: URL?
+        private var ingest: HTTPFLVIngest?
         private var generation = UUID()
         private var onStateChange: ((PlaybackState) -> Void)?
 
-        func update(url: URL?, active: Bool, view: SampleBufferVideoView,
+        func update(ingest: HTTPFLVIngest?, active: Bool, view: SampleBufferVideoView,
                     onStateChange: @escaping (PlaybackState) -> Void) {
             self.onStateChange = onStateChange
             guard active else { stop(view: view); return }
-            guard let url else {
+            guard let ingest else {
                 stop(view: view)
                 schedule(.connecting)
                 return
             }
-            guard player == nil || self.url != url else { return }
+            guard self.ingest !== ingest else { return }
             stop(view: view)
-            self.url = url
+            self.ingest = ingest
             schedule(.connecting)
             do {
-                player = try HTTPFLVPlayer(url: url, displayLayer: view.prepareLayer()) { [weak self] state in
+                try ingest.attachDisplay(view.prepareLayer()) { [weak self] state in
                     self?.schedule(state)
                 }
-                player?.start()
             } catch {
+                stop(view: view)
                 schedule(.reconnecting)
             }
         }
 
         func stop(view: SampleBufferVideoView) {
             generation = UUID()
-            player?.stop()
-            player = nil
-            url = nil
+            if let displayLayer = view.displayLayer {
+                ingest?.detachDisplay(displayLayer)
+            }
+            ingest = nil
             view.removeDisplayLayer()
         }
 
