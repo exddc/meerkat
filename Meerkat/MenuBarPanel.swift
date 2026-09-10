@@ -12,6 +12,7 @@ struct MenuBarPanel: View {
     @ObservedObject private var ingestStore: CameraIngestStore
 
     private let playbackEnabled: Bool
+    private let updater: UpdaterController
     private let panelWidth = CameraGridLayout.panelWidth
     private var gridPanelHeight: CGFloat {
         CameraGridLayout.panelHeight(for: cameras.count)
@@ -35,10 +36,12 @@ struct MenuBarPanel: View {
 
     init(
         ingestStore: CameraIngestStore,
+        updater: UpdaterController = UpdaterController(),
         playbackEnabled: Bool = true,
         showsSettings: Bool = false
     ) {
         self.ingestStore = ingestStore
+        self.updater = updater
         self.playbackEnabled = playbackEnabled
         _showsSettings = State(initialValue: showsSettings)
     }
@@ -52,7 +55,11 @@ struct MenuBarPanel: View {
             cameraGrid
                 .frame(width: panelWidth, height: gridContentHeight)
 
-            SettingsSheet(onBack: { setShowsSettings(false) })
+            SettingsSheet(
+                onBack: { setShowsSettings(false) },
+                canCheckForUpdates: updater.canCheckForUpdates,
+                onCheckForUpdates: updater.checkForUpdates
+            )
                 .frame(width: panelWidth, height: settingsContentHeight)
         }
         .offset(x: showsSettings ? -panelWidth : 0)

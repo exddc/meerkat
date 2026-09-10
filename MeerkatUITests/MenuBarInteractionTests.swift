@@ -56,6 +56,25 @@ final class MenuBarInteractionTests: XCTestCase {
     }
 
     @MainActor
+    func testSettingsContents() {
+        let app = XCUIApplication()
+        app.launch()
+        defer { app.terminate() }
+
+        let statusItem = app.menuBars.statusItems["Meerkat"]
+        XCTAssertTrue(statusItem.waitForExistence(timeout: 5))
+        statusItem.click()
+
+        let settings = app.buttons["settings-button"]
+        XCTAssertTrue(settings.waitForExistence(timeout: 5))
+        settings.click()
+        XCTAssertTrue(app.staticTexts["settings-title"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.buttons["settings-check-for-updates"].exists)
+        XCTAssertTrue(app.staticTexts["settings-version"].exists)
+        addScreenshot(named: "TW-408 Settings")
+    }
+
+    @MainActor
     func testTileExpandsAndReturnsToGrid() {
         let app = XCUIApplication()
         app.launch()

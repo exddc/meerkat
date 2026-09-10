@@ -4,6 +4,8 @@ import SwiftUI
 
 struct SettingsSheet: View {
     var onBack: () -> Void = {}
+    var canCheckForUpdates = false
+    var onCheckForUpdates: () -> Void = {}
 
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Camera.sortIndex) private var cameras: [Camera]
@@ -54,6 +56,19 @@ struct SettingsSheet: View {
                             }
                         }
                     }
+
+                    SettingsGroup(
+                        title: "Updates"
+                    ) {
+                        SettingsSurface {
+                            LabeledContent("Keep Meerkat up to date") {
+                                Button("Check for Updates…", action: onCheckForUpdates)
+                                    .controlSize(.small)
+                                    .disabled(!canCheckForUpdates)
+                                    .accessibilityIdentifier("settings-check-for-updates")
+                            }
+                        }
+                    }
                 }
                 .padding(.horizontal, 14)
                 .padding(.vertical, 12)
@@ -61,11 +76,20 @@ struct SettingsSheet: View {
 
             Divider()
 
-            Button("Quit Meerkat", role: .destructive) {
-                NSApplication.shared.terminate(nil)
+            HStack {
+                Text("Meerkat \(AppInfo.version)")
+                    .font(.caption)
+                    .foregroundStyle(.secondary)
+                    .accessibilityLabel("Meerkat \(AppInfo.version)")
+                    .accessibilityIdentifier("settings-version")
+
+                Spacer()
+
+                Button("Quit Meerkat", role: .destructive) {
+                    NSApplication.shared.terminate(nil)
+                }
+                .accessibilityIdentifier("settings-quit")
             }
-            .frame(maxWidth: .infinity, alignment: .trailing)
-            .accessibilityIdentifier("settings-quit")
             .padding(.horizontal, 8)
             .padding(.vertical, 8)
         }

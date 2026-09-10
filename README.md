@@ -4,6 +4,8 @@ Meerkat is a macOS menu bar app that plays a live grid of Reolink camera streams
 
 Requires macOS 26. Open `Meerkat.xcodeproj` in Xcode and run the Meerkat scheme.
 
+Official DMG builds update through Sparkle. Users can check manually from Settings, and release assets are hosted on GitHub Releases. See [`docs/updates.md`](docs/updates.md) for release setup.
+
 ## Stream URL
 
 Each camera uses an HTTPS HTTP-FLV sub-stream:
