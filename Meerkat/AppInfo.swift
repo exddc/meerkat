@@ -1,7 +1,14 @@
+import Foundation
+
 enum AppInfo {
     static let name = "Meerkat"
     static let menuBarIcon = "MenuBarIcon"
     static let cameraLabelVisibilityKey = "cameraLabelVisibility"
+
+    static var version: String {
+        Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
+            ?? "Unknown"
+    }
 }
 
 enum CameraLabelVisibility: String, CaseIterable {

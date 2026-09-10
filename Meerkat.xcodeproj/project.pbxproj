@@ -30,6 +30,8 @@
 		B00000000000000000000022 /* FLVPlaybackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = B00000000000000000000021 /* FLVPlaybackTests.swift */; };
 		C00000000000000000000001 /* CameraInput.swift in Sources */ = {isa = PBXBuildFile; fileRef = C00000000000000000000002 /* CameraInput.swift */; };
 		C00000000000000000000003 /* CameraIngestStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C00000000000000000000004 /* CameraIngestStore.swift */; };
+		D00000000000000000000001 /* UpdaterController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D00000000000000000000002 /* UpdaterController.swift */; };
+		D00000000000000000000003 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = D00000000000000000000005 /* Sparkle */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -69,6 +71,8 @@
 		B00000000000000000000021 /* FLVPlaybackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = FLVPlaybackTests.swift; sourceTree = "<group>"; };
 		C00000000000000000000002 /* CameraInput.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraInput.swift; sourceTree = "<group>"; };
 		C00000000000000000000004 /* CameraIngestStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraIngestStore.swift; sourceTree = "<group>"; };
+		D00000000000000000000002 /* UpdaterController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdaterController.swift; sourceTree = "<group>"; };
+		D00000000000000000000006 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -76,6 +80,7 @@
 			isa = PBXFrameworksBuildPhase;
 			buildActionMask = 2147483647;
 			files = (
+				D00000000000000000000003 /* Sparkle in Frameworks */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
@@ -110,6 +115,7 @@
 			isa = PBXGroup;
 			children = (
 				A00000000000000000000011 /* AppInfo.swift */,
+				D00000000000000000000006 /* Info.plist */,
 				A0000000000000000000001B /* Assets.xcassets */,
 				A0000000000000000000001A /* Camera.swift */,
 				C00000000000000000000002 /* CameraInput.swift */,
@@ -124,6 +130,7 @@
 				A00000000000000000000013 /* MenuBarPanel.swift */,
 				A0000000000000000000001F /* Persistence.swift */,
 				A0000000000000000000001D /* SettingsSheet.swift */,
+				D00000000000000000000002 /* UpdaterController.swift */,
 				A0000000000000000000001E /* VideoOverlay.swift */,
 				A00000000000000000000027 /* VideoPlayerView.swift */,
 				A00000000000000000000019 /* VideoTile.swift */,
@@ -177,6 +184,7 @@
 			);
 			name = Meerkat;
 			packageProductDependencies = (
+				D00000000000000000000005 /* Sparkle */,
 			);
 			productName = Meerkat;
 			productReference = A00000000000000000000015 /* Meerkat.app */;
@@ -251,6 +259,7 @@
 			);
 			mainGroup = A00000000000000000000050;
 			packageReferences = (
+				D00000000000000000000004 /* XCRemoteSwiftPackageReference "Sparkle" */,
 			);
 			productRefGroup = A00000000000000000000053 /* Products */;
 			projectDirPath = "";
@@ -307,6 +316,7 @@
 				A0000000000000000000000D /* Persistence.swift in Sources */,
 				A00000000000000000000003 /* MenuBarPanel.swift in Sources */,
 				A0000000000000000000000B /* SettingsSheet.swift in Sources */,
+				D00000000000000000000001 /* UpdaterController.swift in Sources */,
 				A0000000000000000000000C /* VideoOverlay.swift in Sources */,
 				A00000000000000000000029 /* VideoPlayerView.swift in Sources */,
 				A00000000000000000000006 /* VideoTile.swift in Sources */,
@@ -383,15 +393,19 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_HARDENED_RUNTIME = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = Meerkat;
-				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
-				INFOPLIST_KEY_LSUIElement = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Meerkat/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 0.1.0;
+				MARKETING_VERSION = 0.0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.exddc.meerkat;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
+				SPARKLE_FEED_URL = "";
+				SPARKLE_PUBLIC_KEY = "";
 				SWIFT_VERSION = 6.0;
 			};
 			name = Debug;
@@ -403,15 +417,18 @@
 				CODE_SIGN_STYLE = Automatic;
 				CURRENT_PROJECT_VERSION = 1;
 				ENABLE_HARDENED_RUNTIME = YES;
-				GENERATE_INFOPLIST_FILE = YES;
-				INFOPLIST_KEY_CFBundleDisplayName = Meerkat;
-				INFOPLIST_KEY_LSApplicationCategoryType = "public.app-category.utilities";
-				INFOPLIST_KEY_LSUIElement = YES;
+				GENERATE_INFOPLIST_FILE = NO;
+				INFOPLIST_FILE = Meerkat/Info.plist;
+				LD_RUNPATH_SEARCH_PATHS = (
+					"$(inherited)",
+					"@executable_path/../Frameworks",
+				);
 				MACOSX_DEPLOYMENT_TARGET = 26.0;
-				MARKETING_VERSION = 0.1.0;
+				MARKETING_VERSION = 0.0.1;
 				PRODUCT_BUNDLE_IDENTIFIER = com.exddc.meerkat;
 				PRODUCT_NAME = "$(TARGET_NAME)";
 				SDKROOT = macosx;
+				SPARKLE_FEED_URL = "https://exddc.github.io/meerkat/appcast.xml";
 				SWIFT_VERSION = 6.0;
 			};
 			name = Release;
@@ -518,6 +535,25 @@
 			defaultConfigurationName = Release;
 		};
 /* End XCConfigurationList section */
+
+/* Begin XCRemoteSwiftPackageReference section */
+		D00000000000000000000004 /* XCRemoteSwiftPackageReference "Sparkle" */ = {
+			isa = XCRemoteSwiftPackageReference;
+			repositoryURL = "https://github.com/sparkle-project/Sparkle";
+			requirement = {
+				kind = upToNextMajorVersion;
+				minimumVersion = 2.9.4;
+			};
+		};
+/* End XCRemoteSwiftPackageReference section */
+
+/* Begin XCSwiftPackageProductDependency section */
+		D00000000000000000000005 /* Sparkle */ = {
+			isa = XCSwiftPackageProductDependency;
+			package = D00000000000000000000004 /* XCRemoteSwiftPackageReference "Sparkle" */;
+			productName = Sparkle;
+		};
+/* End XCSwiftPackageProductDependency section */
 
 
 	};

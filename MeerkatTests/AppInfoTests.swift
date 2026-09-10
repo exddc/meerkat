@@ -7,7 +7,28 @@ struct AppInfoTests {
     func menuBarIdentity() {
         #expect(AppInfo.name == "Meerkat")
         #expect(AppInfo.menuBarIcon == "MenuBarIcon")
+        let versionComponents = AppInfo.version.split(separator: ".", omittingEmptySubsequences: false)
+        #expect(versionComponents.count == 3)
+        #expect(versionComponents.allSatisfy { component in
+            !component.isEmpty && component.allSatisfy(\.isNumber)
+        })
         #expect(NSImage(named: AppInfo.menuBarIcon) != nil)
+    }
+
+    @Test
+    func updateConfigurationRequiresFeedAndPublicKey() {
+        #expect(!UpdaterController.hasUpdateConfiguration(in: nil))
+        #expect(!UpdaterController.hasUpdateConfiguration(in: [
+            "SUFeedURL": "https://exddc.github.io/meerkat/appcast.xml"
+        ]))
+        #expect(!UpdaterController.hasUpdateConfiguration(in: [
+            "SUFeedURL": "https://exddc.github.io/meerkat/appcast.xml",
+            "SUPublicEDKey": "$(SPARKLE_PUBLIC_KEY)"
+        ]))
+        #expect(UpdaterController.hasUpdateConfiguration(in: [
+            "SUFeedURL": "https://exddc.github.io/meerkat/appcast.xml",
+            "SUPublicEDKey": "public-key"
+        ]))
     }
 
     @Test
