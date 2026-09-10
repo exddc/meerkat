@@ -2,6 +2,40 @@ import XCTest
 
 final class MenuBarInteractionTests: XCTestCase {
     @MainActor
+    func testCameraDeletionRequiresConfirmation() {
+        let app = XCUIApplication()
+        app.launch()
+        defer { app.terminate() }
+
+        let statusItem = app.menuBars.statusItems["Meerkat"]
+        XCTAssertTrue(statusItem.waitForExistence(timeout: 5))
+        statusItem.click()
+
+        let settings = app.buttons["settings-button"]
+        XCTAssertTrue(settings.waitForExistence(timeout: 5))
+        settings.click()
+        resetCameras(in: app, count: 1)
+
+        let removeButtons = app.buttons.matching(
+            NSPredicate(format: "identifier ENDSWITH '-remove'")
+        )
+        XCTAssertEqual(removeButtons.count, 1)
+        removeButtons.firstMatch.click()
+
+        let cancel = app.buttons["cancel-camera-removal"]
+        XCTAssertTrue(cancel.waitForExistence(timeout: 5))
+
+        cancel.click()
+        XCTAssertEqual(removeButtons.count, 1)
+        removeButtons.firstMatch.click()
+
+        let confirm = app.buttons["confirm-camera-removal"]
+        XCTAssertTrue(confirm.waitForExistence(timeout: 5))
+        confirm.click()
+        XCTAssertTrue(removeButtons.firstMatch.waitForNonExistence(timeout: 5))
+    }
+
+    @MainActor
     func testPanelOpensFromMenuBar() {
         let app = XCUIApplication()
         app.launch()
@@ -88,6 +122,9 @@ final class MenuBarInteractionTests: XCTestCase {
         )
         while removeButtons.firstMatch.exists {
             removeButtons.firstMatch.click()
+            let confirm = app.buttons["confirm-camera-removal"]
+            XCTAssertTrue(confirm.waitForExistence(timeout: 5))
+            confirm.click()
         }
 
         let addCamera = app.buttons["settings-add-camera"]
