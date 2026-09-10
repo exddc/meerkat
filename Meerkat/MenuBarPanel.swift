@@ -10,9 +10,9 @@ struct MenuBarPanel: View {
     @State private var maximumContentHeight: CGFloat?
     @State private var showsSettings: Bool
     @ObservedObject private var ingestStore: CameraIngestStore
+    @ObservedObject private var updater: UpdaterController
 
     private let playbackEnabled: Bool
-    private let updater: UpdaterController
     private let panelWidth = CameraGridLayout.panelWidth
     private var gridPanelHeight: CGFloat {
         CameraGridLayout.panelHeight(for: cameras.count)
@@ -41,7 +41,7 @@ struct MenuBarPanel: View {
         showsSettings: Bool = false
     ) {
         self.ingestStore = ingestStore
-        self.updater = updater
+        _updater = ObservedObject(wrappedValue: updater)
         self.playbackEnabled = playbackEnabled
         _showsSettings = State(initialValue: showsSettings)
     }

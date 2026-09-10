@@ -28,9 +28,14 @@ jobs:
 
       - name: Resolve release metadata
         id: meta
+        env:
+          INPUT_TAG: ${{ inputs.tag }}
         run: |
-          TAG="${{ inputs.tag }}"
+          TAG="$INPUT_TAG"
           [ -z "$TAG" ] && TAG="${GITHUB_REF#refs/tags/}"
+          [[ "$TAG" =~ ^v[0-9]+\.[0-9]+\.[0-9]+$ ]] || { echo "Release tag must match vX.Y.Z" >&2; exit 1; }
+          git fetch origin main
+          git merge-base --is-ancestor HEAD FETCH_HEAD || { echo "Release commit is not on main" >&2; exit 1; }
           VERSION="${TAG#v}"
           BUILD="$(git rev-list --count HEAD)"
           {

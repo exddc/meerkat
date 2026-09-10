@@ -7,7 +7,11 @@ struct AppInfoTests {
     func menuBarIdentity() {
         #expect(AppInfo.name == "Meerkat")
         #expect(AppInfo.menuBarIcon == "MenuBarIcon")
-        #expect(AppInfo.version == "0.0.1")
+        let versionComponents = AppInfo.version.split(separator: ".", omittingEmptySubsequences: false)
+        #expect(versionComponents.count == 3)
+        #expect(versionComponents.allSatisfy { component in
+            !component.isEmpty && component.allSatisfy(\.isNumber)
+        })
         #expect(NSImage(named: AppInfo.menuBarIcon) != nil)
     }
 

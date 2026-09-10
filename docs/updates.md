@@ -12,7 +12,9 @@ Meerkat uses [Sparkle 2](https://sparkle-project.org/documentation/) for automat
 
 ## Publish a Release
 
-Push a version tag matching the app's marketing version:
+Meerkat publishes only version-tagged commits from `main`. Ordinary merges do not publish builds, and there is no nightly channel.
+
+Push a SemVer tag. The workflow uses the tag as the app's marketing version:
 
 ```sh
 git tag v0.0.1

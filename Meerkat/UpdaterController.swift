@@ -1,23 +1,26 @@
 import AppKit
+import Combine
 import Sparkle
 
 @MainActor
-final class UpdaterController {
-    private var controller: SPUStandardUpdaterController?
+final class UpdaterController: ObservableObject {
+    @Published private(set) var canCheckForUpdates = false
 
-    var canCheckForUpdates: Bool {
-        controller?.updater.canCheckForUpdates ?? false
-    }
+    private var controller: SPUStandardUpdaterController?
 
     func start(bundle: Bundle = .main) {
         guard controller == nil else { return }
         guard Self.hasUpdateConfiguration(in: bundle.infoDictionary) else { return }
 
-        controller = SPUStandardUpdaterController(
+        let controller = SPUStandardUpdaterController(
             startingUpdater: true,
             updaterDelegate: nil,
             userDriverDelegate: nil
         )
+        self.controller = controller
+        controller.updater
+            .publisher(for: \.canCheckForUpdates, options: [.initial, .new])
+            .assign(to: &$canCheckForUpdates)
     }
 
     func checkForUpdates() {
