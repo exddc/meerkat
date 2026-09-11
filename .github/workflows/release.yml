@@ -97,8 +97,23 @@ jobs:
           NOTARY_APP_PASSWORD: ${{ secrets.APPLE_APP_SPECIFIC_PASSWORD }}
           NOTARY_TEAM_ID: ${{ secrets.APPLE_TEAM_ID }}
         run: |
+          APP="build/Meerkat.xcarchive/Products/Applications/Meerkat.app"
+          SPARKLE="$APP/Contents/Frameworks/Sparkle.framework"
+          codesign --force --timestamp --options runtime --sign "$CODESIGN_IDENTITY" \
+            "$SPARKLE/Versions/B/XPCServices/Installer.xpc"
+          codesign --force --timestamp --options runtime --preserve-metadata=entitlements --sign "$CODESIGN_IDENTITY" \
+            "$SPARKLE/Versions/B/XPCServices/Downloader.xpc"
+          codesign --force --timestamp --options runtime --sign "$CODESIGN_IDENTITY" \
+            "$SPARKLE/Versions/B/Autoupdate"
+          codesign --force --timestamp --options runtime --sign "$CODESIGN_IDENTITY" \
+            "$SPARKLE/Versions/B/Updater.app"
+          codesign --force --timestamp --options runtime --sign "$CODESIGN_IDENTITY" "$SPARKLE"
+          codesign --force --timestamp --options runtime --preserve-metadata=identifier,entitlements,requirements \
+            --sign "$CODESIGN_IDENTITY" "$APP"
+          codesign --deep --strict --verify "$APP"
+
           mkdir -p build/dmg
-          ditto build/Meerkat.xcarchive/Products/Applications/Meerkat.app build/dmg/Meerkat.app
+          ditto "$APP" build/dmg/Meerkat.app
           ln -s /Applications build/dmg/Applications
           hdiutil create \
             -volname Meerkat \
@@ -107,12 +122,28 @@ jobs:
             -format UDZO \
             "build/Meerkat-${{ steps.meta.outputs.version }}.dmg"
           codesign --force --timestamp --sign "$CODESIGN_IDENTITY" "build/Meerkat-${{ steps.meta.outputs.version }}.dmg"
-          xcrun notarytool submit \
+          set +e
+          NOTARY_RESULT="$(xcrun notarytool submit \
             "build/Meerkat-${{ steps.meta.outputs.version }}.dmg" \
             --apple-id "$NOTARY_APPLE_ID" \
             --password "$NOTARY_APP_PASSWORD" \
             --team-id "$NOTARY_TEAM_ID" \
-            --wait
+            --wait \
+            --output-format json)"
+          NOTARY_EXIT=$?
+          set -e
+          printf '%s\n' "$NOTARY_RESULT"
+          SUBMISSION_ID="$(printf '%s' "$NOTARY_RESULT" | jq -r '.id // empty')"
+          NOTARY_STATUS="$(printf '%s' "$NOTARY_RESULT" | jq -r '.status // empty')"
+          if [ "$NOTARY_EXIT" -ne 0 ] || [ "$NOTARY_STATUS" != "Accepted" ]; then
+            if [ -n "$SUBMISSION_ID" ]; then
+              xcrun notarytool log "$SUBMISSION_ID" \
+                --apple-id "$NOTARY_APPLE_ID" \
+                --password "$NOTARY_APP_PASSWORD" \
+                --team-id "$NOTARY_TEAM_ID" || true
+            fi
+            exit 1
+          fi
           xcrun stapler staple "build/Meerkat-${{ steps.meta.outputs.version }}.dmg"
 
       - name: Publish GitHub release
