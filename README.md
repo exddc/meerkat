@@ -43,7 +43,7 @@ Run camera-independent tests with:
 xcodebuild -project Meerkat.xcodeproj -scheme Meerkat -only-testing:MeerkatTests test
 ```
 
-# Contributing
+## Contributing
 
 Contributions are always welcome! Please open an issue or pull request. If you have a camera that is not on the offical supported list, but works with Meerkat, please open an issue and I'll add it to the list.
 
