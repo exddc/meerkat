@@ -14,7 +14,7 @@ The stream connections are kept open in the background so the panel can show the
 
 Get the latest universal DMG from the releases page, open it, and drag Meerkat to your Applications folder.
 
-The app updates itself in place via signed, notarized Sparkle updates. Requires macOS 26 (Sonoma) or later.
+The app updates itself in place via signed, notarized Sparkle updates. Requires macOS 26 (Tahoe) or later.
 
 ## Supported Cameras
 
