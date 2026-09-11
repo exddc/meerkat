@@ -6,3 +6,4 @@ DerivedData/
 *.xcuserstate
 *.profraw
 **/Cameras.json
+metrics/
