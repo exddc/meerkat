@@ -62,6 +62,7 @@ struct SettingsSheet: View {
                     ) {
                         SettingsSurface {
                             LabeledContent("Keep Meerkat up to date") {
+                                Spacer()
                                 Button("Check for Updates…", action: onCheckForUpdates)
                                     .controlSize(.small)
                                     .disabled(!canCheckForUpdates)
