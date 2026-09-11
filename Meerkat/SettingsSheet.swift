@@ -339,6 +339,9 @@ private struct CameraRow: View {
         .onChange(of: addressFocused) {
             if !addressFocused { editor.input.address = CameraInput(editor.input.address).address }
         }
+        .onDisappear {
+            editor.flush()
+        }
     }
 
     private var cameraHeader: some View {

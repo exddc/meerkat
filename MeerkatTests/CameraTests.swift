@@ -188,10 +188,11 @@ struct CameraConfigurationEditorTests {
         input.username = "viewer"
         input.password = ""
         editor.input = input
-        try await Task.sleep(for: .milliseconds(20))
+        try await waitUntil { editor.endpointError != nil }
 
         #expect(camera.streamURLString == "https://old.test/live")
         #expect(await probes.startedURLs.isEmpty)
+        #expect(editor.endpointError == "Enter the camera username and password.")
 
         input.password = "secret"
         editor.input = input
@@ -212,6 +213,27 @@ struct CameraConfigurationEditorTests {
         try await waitUntil { await probes.hasStarted(thirdURL) }
         await probes.succeed(thirdURL)
         #expect(await probes.startedURLs == [firstURL, secondURL, thirdURL])
+    }
+
+    @Test func flushesCompletePendingConfigurationWithoutValidation() async throws {
+        let camera = Camera(name: "Front Door", streamURLString: "https://old.test/live")
+        camera.authenticationRequired = false
+        let probes = EndpointProbeRecorder()
+        let editor = CameraConfigurationEditor(
+            camera: camera,
+            debounceDuration: .seconds(30),
+            endpointCheck: { try await probes.check($0) }
+        )
+
+        var input = editor.input
+        input.address = "https://current.test/live"
+        editor.input = input
+        let currentURL = try #require(input.completeStreamURL)
+        editor.flush()
+        try await Task.sleep(for: .milliseconds(20))
+
+        #expect(camera.streamURLString == currentURL.absoluteString)
+        #expect(await probes.startedURLs.isEmpty)
     }
 
     @Test func debouncesPlaybackConfigurationUpdates() async throws {

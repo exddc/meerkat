@@ -137,6 +137,13 @@ final class CameraConfigurationEditor: ObservableObject {
         updateTask?.cancel()
     }
 
+    func flush() {
+        updateTask?.cancel()
+        updateRevision &+= 1
+        guard let url = input.completeStreamURL else { return }
+        persist(input, url: url)
+    }
+
     private func scheduleUpdate() {
         updateTask?.cancel()
         updateRevision &+= 1
@@ -156,7 +163,10 @@ final class CameraConfigurationEditor: ObservableObject {
                     self?.setEndpointError("Enter a valid camera address.", for: revision)
                     return
                 }
-                guard input.completeStreamURL != nil else { return }
+                guard input.completeStreamURL != nil else {
+                    self?.setEndpointError("Enter the camera username and password.", for: revision)
+                    return
+                }
                 guard self?.updateRevision == revision else { return }
                 self?.persist(input, url: url)
 
