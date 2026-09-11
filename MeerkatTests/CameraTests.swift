@@ -62,6 +62,24 @@ struct CameraInputTests {
         #expect(url.absoluteString.contains("stream=channel2_sub.bcs"))
     }
 
+    @Test func restoresEditingAddressFromPersistedDefaultReolinkURL() {
+        let input = CameraInput(
+            playbackURLString: "https://192.168.1.25:8443/flv?port=1935&app=bcs&stream=channel0_sub.bcs&user=viewer&password=secret",
+            authenticationRequired: true
+        )
+
+        #expect(input.address == "192.168.1.25:8443")
+        #expect(input.username == "viewer")
+        #expect(input.password == "secret")
+    }
+
+    @Test func preservesCustomURLWhenRestoringEditingAddress() {
+        let url = "https://camera.test/custom?channel=2"
+        let input = CameraInput(playbackURLString: url, authenticationRequired: false)
+
+        #expect(input.address == url)
+    }
+
     @Test func percentEncodesPlusInCredentials() throws {
         var input = CameraInput("192.168.1.25")
         input.username = "viewer+admin"
@@ -109,6 +127,14 @@ struct CameraInputTests {
         #expect(input.streamURL?.scheme == "https")
     }
 
+    @Test func requiresCompleteCredentialsForPlaybackUpdate() {
+        var input = CameraInput("192.168.1.25")
+        input.username = "viewer"
+        #expect(input.completeStreamURL == nil)
+        input.password = "secret"
+        #expect(input.completeStreamURL != nil)
+    }
+
     @Test func cancelsStalledEndpointProbe() async throws {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [CameraCheckProtocol.self]
@@ -141,6 +167,149 @@ struct CameraInputTests {
                 }
             }
         }
+    }
+}
+
+@MainActor
+struct CameraConfigurationEditorTests {
+    @Test func persistsAndValidatesOnlyCompleteCredentials() async throws {
+        let camera = Camera(name: "Front Door", streamURLString: "https://old.test/live")
+        camera.authenticationRequired = false
+        let probes = EndpointProbeRecorder()
+        let editor = CameraConfigurationEditor(
+            camera: camera,
+            debounceDuration: .zero,
+            endpointCheck: { try await probes.check($0) }
+        )
+
+        var input = editor.input
+        input.address = "new.test"
+        input.requiresAuthentication = true
+        input.username = "viewer"
+        input.password = ""
+        editor.input = input
+        try await Task.sleep(for: .milliseconds(20))
+
+        #expect(camera.streamURLString == "https://old.test/live")
+        #expect(await probes.startedURLs.isEmpty)
+
+        input.password = "secret"
+        editor.input = input
+        let firstURL = try #require(input.completeStreamURL)
+        try await waitUntil { await probes.hasStarted(firstURL) }
+        #expect(camera.streamURLString == firstURL.absoluteString)
+        await probes.succeed(firstURL)
+
+        input.username = "admin"
+        editor.input = input
+        let secondURL = try #require(input.completeStreamURL)
+        try await waitUntil { await probes.hasStarted(secondURL) }
+        await probes.succeed(secondURL)
+
+        input.password = "new-secret"
+        editor.input = input
+        let thirdURL = try #require(input.completeStreamURL)
+        try await waitUntil { await probes.hasStarted(thirdURL) }
+        await probes.succeed(thirdURL)
+        #expect(await probes.startedURLs == [firstURL, secondURL, thirdURL])
+    }
+
+    @Test func debouncesPlaybackConfigurationUpdates() async throws {
+        let camera = Camera(name: "Front Door", streamURLString: "https://old.test/live")
+        camera.authenticationRequired = false
+        let probes = EndpointProbeRecorder()
+        let editor = CameraConfigurationEditor(
+            camera: camera,
+            debounceDuration: .milliseconds(50),
+            endpointCheck: { try await probes.check($0) }
+        )
+
+        var input = editor.input
+        input.address = "https://first.test/live"
+        editor.input = input
+        input.address = "https://current.test/live"
+        editor.input = input
+        let currentURL = try #require(input.completeStreamURL)
+
+        try await Task.sleep(for: .milliseconds(20))
+        #expect(camera.streamURLString == "https://old.test/live")
+        #expect(await probes.startedURLs.isEmpty)
+
+        try await waitUntil { await probes.hasStarted(currentURL) }
+        #expect(camera.streamURLString == currentURL.absoluteString)
+        #expect(await probes.startedURLs == [currentURL])
+        await probes.succeed(currentURL)
+    }
+
+    @Test func successfulValidationClearsErrorAndStaleFailureCannotRestoreIt() async throws {
+        let camera = Camera(name: "Front Door", streamURLString: "https://initial.test/live")
+        camera.authenticationRequired = false
+        let probes = EndpointProbeRecorder()
+        let editor = CameraConfigurationEditor(
+            camera: camera,
+            debounceDuration: .zero,
+            endpointCheck: { try await probes.check($0) }
+        )
+
+        var input = editor.input
+        input.address = "https://failed.test/live"
+        editor.input = input
+        let failedURL = try #require(input.completeStreamURL)
+        try await waitUntil { await probes.hasStarted(failedURL) }
+        await probes.fail(failedURL)
+        try await waitUntil { editor.endpointError != nil }
+
+        input.address = "https://stale.test/live"
+        editor.input = input
+        let staleURL = try #require(input.completeStreamURL)
+        try await waitUntil { await probes.hasStarted(staleURL) }
+
+        input.address = "https://current.test/live"
+        editor.input = input
+        let currentURL = try #require(input.completeStreamURL)
+        try await waitUntil { await probes.hasStarted(currentURL) }
+        await probes.succeed(currentURL)
+        try await waitUntil { editor.endpointError == nil }
+
+        await probes.fail(staleURL)
+        try await Task.sleep(for: .milliseconds(20))
+
+        #expect(editor.endpointError == nil)
+        #expect(camera.streamURLString == currentURL.absoluteString)
+    }
+
+    private func waitUntil(
+        _ condition: @escaping @MainActor () async -> Bool
+    ) async throws {
+        for _ in 0..<100 {
+            if await condition() { return }
+            try await Task.sleep(for: .milliseconds(10))
+        }
+        Issue.record("Timed out waiting for asynchronous editor state")
+    }
+}
+
+private actor EndpointProbeRecorder {
+    private var continuations: [URL: CheckedContinuation<Void, any Error>] = [:]
+    private(set) var startedURLs: [URL] = []
+
+    func check(_ url: URL) async throws {
+        startedURLs.append(url)
+        try await withCheckedThrowingContinuation { continuation in
+            continuations[url] = continuation
+        }
+    }
+
+    func hasStarted(_ url: URL) -> Bool {
+        continuations[url] != nil
+    }
+
+    func succeed(_ url: URL) {
+        continuations.removeValue(forKey: url)?.resume()
+    }
+
+    func fail(_ url: URL) {
+        continuations.removeValue(forKey: url)?.resume(throwing: CameraEndpointCheck.Failure.unavailable)
     }
 }
 
