@@ -1,0 +1,14 @@
+<?xml version="1.0" standalone="yes"?>
+<rss xmlns:sparkle="http://www.andymatuschak.org/xml-namespaces/sparkle" version="2.0">
+    <channel>
+        <title>Meerkat</title>
+        <item>
+            <title>0.0.1</title>
+            <pubDate>Fri, 11 Sep 2026 02:07:27 +0000</pubDate>
+            <sparkle:version>51</sparkle:version>
+            <sparkle:shortVersionString>0.0.1</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <enclosure url="https://github.com/exddc/meerkat/releases/download/v0.0.1/Meerkat-0.0.1.dmg" length="2946886" type="application/octet-stream" sparkle:edSignature="nLT0Jna7fvmuMWrGGA5sWXyCj7XzYihLyhg12/DqxWbidI30ND+eRlJClidO6KdDvSeqw0nr9oXVSr0iJx73Bg=="/>
+        </item>
+    </channel>
+</rss>
