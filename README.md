@@ -1,32 +1,40 @@
 # Meerkat
 
-Meerkat is a macOS menu bar app that plays a live grid of Reolink camera streams. Click the icon to open the panel. Each camera's HTTP-FLV connection stays open in the background so the panel can show a frame without waiting for the next keyframe.
+Peek at your cameras from the menu bar. Instantly.
 
-Requires macOS 26. Open `Meerkat.xcodeproj` in Xcode and run the Meerkat scheme.
+![Meerkat screenshot](docs/meerkat-screenshot.png)
 
-Official DMG builds update through Sparkle. Users can check manually from Settings, and release assets are hosted on GitHub Releases. See [`docs/updates.md`](docs/updates.md) for release setup.
+Meerkat is a macOS menu bar app that plays a live grid of Reolink (and more providers in the future) camera streams in a small window triggered from the menu bar icon. The app is designed to be lightweight and fast, and to use minimal resources.
 
-## Stream URL
+The stream connections are kept open in the background so the panel can show the livestream instantly.
 
-Each camera uses an HTTPS HTTP-FLV sub-stream:
+## Installation
 
+### Download
+
+Get the latest universal DMG from the releases page, open it, and drag Meerkat to your Applications folder.
+
+The app updates itself in place via signed, notarized Sparkle updates. Requires macOS 26 (Tahoe) or later.
+
+## Supported Cameras
+
+Currently supported cameras:
+- Reolink (tested with RLC-520A and RLC-810A)
+
+Right now it's just tested with Reolink cameras, more cameras will be officially supported in the future. Nothing is stopping you from adding other cameras yourself if they provide an HTTP-FLV stream. Just put in the camera's IP address, username, and password and if the stream is available, it will be shown in the app like the Reolink cameras.
+
+## Usage
+
+Add a camera in Settings by clicking "Add camera". Enter the camera's IP address, username, and password if required.
+
+## Development
+
+Clone the repository and open the project in Xcode. Build and run the app to see the live grid.
+
+Build the app with:
+```sh
+xcodebuild -project Meerkat.xcodeproj -scheme Meerkat build
 ```
-https://<ip>/flv?port=1935&app=bcs&stream=channel0_sub.bcs&user=<user>&password=<password>
-```
-
-Add cameras in Settings.
-
-- Use HTTPS. An HTTP request redirects to `https://<ip>/` and drops the `/flv` path.
-- Reolink cameras present a self-signed TLS certificate. Meerkat accepts it only for the configured `/flv` endpoint on a private, link-local, or Tailscale (`100.64.0.0/10`) IP address. Public hosts use normal certificate validation. Use the camera’s LAN or Tailscale IP for self-signed certificates.
-- Do not percent-encode special characters in the password. A `!` sent as `%21` makes the camera drop the stream.
-
-## Playback
-
-Each tile takes an HTTPS HTTP-FLV URL carrying H.264 (AVC). URLSession reads the stream, the FLV parser extracts video tags, and Core Media packs AVC frames for `AVSampleBufferDisplayLayer`. The parser ignores audio tags. HLS demo URLs and RTSP are unsupported; add a real camera in Settings.
-
-The app starts one ingest session per configured camera and keeps the latest encoded Group of Pictures (GOP) in memory. Closing the panel flushes and removes every display layer, which stops decode, but the HTTP sessions continue to refill their GOP buffers. Opening the panel enqueues the stored GOP before live samples. The ingest retimes the stored timestamps to the host clock. Earlier frames decode as references and are dropped for display, and the newest frame displays immediately. Live samples continue on the same timeline.
-
-Ingest retries dropped connections after two seconds, including failures before the first frame. Ten seconds without video also triggers reconnection. On 429 or 5xx, ingest waits two seconds and reconnects. The tile shows “Check credentials” for 401 or 403. An unsupported codec such as H.265, a redirect, or another non-FLV body maps to “Unsupported stream”. A rejected certificate maps to “Untrusted certificate”. Ingest retries these failures every 30 seconds. Reconnection clears stale encoded frames and waits for a new keyframe (IDR). The app rejects HTTP redirects to preserve the endpoint and keep credentials on the configured camera.
 
 Run camera-independent tests with:
 
@@ -34,6 +42,10 @@ Run camera-independent tests with:
 xcodebuild -project Meerkat.xcodeproj -scheme Meerkat -only-testing:MeerkatTests test
 ```
 
+## Contributing
+
+Contributions are always welcome! Please open an issue or pull request. If you have a camera that is not on the official supported list, but works with Meerkat, please open an issue and I'll add it to the list.
+
 ## License
 
-MIT. See `LICENSE`.
+MIT.
