@@ -31,10 +31,9 @@ Add a camera in Settings by clicking "Add camera". Enter the camera's IP address
 
 Clone the repository and open the project in Xcode. Build and run the app to see the live grid.
 
-Build and run the app with:
+Build the app with:
 ```sh
 xcodebuild -project Meerkat.xcodeproj -scheme Meerkat build
-xcodebuild -project Meerkat.xcodeproj -scheme Meerkat run
 ```
 
 Run camera-independent tests with:
