@@ -1,3 +1,4 @@
+import Combine
 import Foundation
 
 struct CameraInput: Equatable {
@@ -9,6 +10,13 @@ struct CameraInput: Equatable {
     init(_ input: String) {
         address = input
         importCredentials()
+    }
+
+    init(playbackURLString: String, authenticationRequired: Bool?) {
+        self.init(playbackURLString)
+        requiresAuthentication = authenticationRequired
+            ?? (playbackURLString.isEmpty || Self.containsCredentials(in: playbackURLString))
+        address = Self.defaultReolinkAddress(from: playbackURLString) ?? address
     }
 
     mutating func importCredentials() {
@@ -52,6 +60,32 @@ struct CameraInput: Equatable {
         return components.url
     }
 
+    var completeStreamURL: URL? {
+        guard !requiresAuthentication || (!username.isEmpty && !password.isEmpty) else { return nil }
+        return streamURL
+    }
+
+    private static func containsCredentials(in input: String) -> Bool {
+        guard let components = components(input) else { return false }
+        let items = components.queryItems ?? []
+        return components.user != nil
+            || components.password != nil
+            || items.contains { $0.name == "user" || $0.name == "password" }
+    }
+
+    private static func defaultReolinkAddress(from input: String) -> String? {
+        guard let components = components(input), components.path == "/flv" else { return nil }
+        let items = (components.queryItems ?? []).filter { $0.name != "user" && $0.name != "password" }
+        let defaults = [
+            URLQueryItem(name: "port", value: "1935"),
+            URLQueryItem(name: "app", value: "bcs"),
+            URLQueryItem(name: "stream", value: "channel0_sub.bcs"),
+        ]
+        guard items.count == defaults.count, defaults.allSatisfy(items.contains) else { return nil }
+        guard let host = components.host else { return nil }
+        return components.port.map { "\(host):\($0)" } ?? host
+    }
+
     private static func components(_ input: String) -> URLComponents? {
         let input = input.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !input.isEmpty, !input.contains(where: { $0.isWhitespace }) else { return nil }
@@ -62,6 +96,110 @@ struct CameraInput: Equatable {
               components.port.map({ (1...65535).contains($0) }) ?? true else { return nil }
         components.scheme = "https"
         return components
+    }
+}
+
+@MainActor
+final class CameraConfigurationEditor: ObservableObject {
+    typealias EndpointCheck = @Sendable (URL) async throws -> Void
+
+    @Published var input: CameraInput {
+        didSet {
+            guard input != oldValue else { return }
+            scheduleUpdate()
+        }
+    }
+    @Published private(set) var endpointError: String?
+
+    private let camera: Camera
+    private let debounceDuration: Duration
+    private let endpointCheck: EndpointCheck
+    private var updateRevision = 0
+    private var updateTask: Task<Void, Never>?
+
+    init(
+        camera: Camera,
+        debounceDuration: Duration = .milliseconds(700),
+        endpointCheck: @escaping EndpointCheck = { url in
+            try await CameraEndpointCheck(url: url).check()
+        }
+    ) {
+        self.camera = camera
+        self.debounceDuration = debounceDuration
+        self.endpointCheck = endpointCheck
+        input = CameraInput(
+            playbackURLString: camera.streamURLString,
+            authenticationRequired: camera.authenticationRequired
+        )
+    }
+
+    deinit {
+        updateTask?.cancel()
+    }
+
+    func flush() {
+        updateTask?.cancel()
+        updateRevision &+= 1
+        guard let url = input.completeStreamURL else { return }
+        persist(input, url: url)
+    }
+
+    private func scheduleUpdate() {
+        updateTask?.cancel()
+        updateRevision &+= 1
+        let revision = updateRevision
+        let input = input
+        let debounceDuration = debounceDuration
+        let endpointCheck = endpointCheck
+        endpointError = nil
+
+        guard !input.address.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
+
+        updateTask = Task { [weak self] in
+            do {
+                try await Task.sleep(for: debounceDuration)
+                try Task.checkCancellation()
+                guard let url = input.streamURL else {
+                    self?.setEndpointError("Enter a valid camera address.", for: revision)
+                    return
+                }
+                guard input.completeStreamURL != nil else {
+                    self?.setEndpointError("Enter the camera username and password.", for: revision)
+                    return
+                }
+                guard self?.updateRevision == revision else { return }
+                self?.persist(input, url: url)
+
+                try await endpointCheck(url)
+                try Task.checkCancellation()
+                guard self?.updateRevision == revision else { return }
+                self?.endpointError = nil
+            } catch is CancellationError {
+                return
+            } catch {
+                guard !Task.isCancelled else { return }
+                self?.setEndpointError(Self.errorMessage(for: error), for: revision)
+            }
+        }
+    }
+
+    private func persist(_ input: CameraInput, url: URL) {
+        if camera.authenticationRequired != input.requiresAuthentication {
+            camera.authenticationRequired = input.requiresAuthentication
+        }
+        if camera.streamURLString != url.absoluteString {
+            camera.streamURLString = url.absoluteString
+        }
+    }
+
+    private func setEndpointError(_ error: String, for revision: Int) {
+        guard updateRevision == revision else { return }
+        endpointError = error
+    }
+
+    private static func errorMessage(for error: Error) -> String {
+        (error as? CameraEndpointCheck.Failure)?.errorDescription
+            ?? "Could not reach the camera. Check the address and connection."
     }
 }
 
