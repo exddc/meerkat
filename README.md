@@ -42,6 +42,14 @@ Run camera-independent tests with:
 xcodebuild -project Meerkat.xcodeproj -scheme Meerkat -only-testing:MeerkatTests test
 ```
 
+Generate CPU, memory, and long-running impact metrics from an optimized build with:
+
+```sh
+scripts/generate-metrics.sh --duration 5m --label background-one-camera
+```
+
+See [Metrics](docs/metrics.md) for scenarios, output fields, and comparison guidance.
+
 ## Contributing
 
 Contributions are always welcome! Please open an issue or pull request. If you have a camera that is not on the official supported list, but works with Meerkat, please open an issue and I'll add it to the list.
