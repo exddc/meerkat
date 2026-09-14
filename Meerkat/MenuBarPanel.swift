@@ -5,6 +5,7 @@ import SwiftUI
 struct MenuBarPanel: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Query(sort: \Camera.sortIndex) private var cameras: [Camera]
+    @AppStorage(BackgroundStreaming.enabledKey) private var backgroundStreamingEnabled = BackgroundStreaming.defaultEnabled
     @State private var expandedCameraID: UUID?
     @State private var isVisible = false
     @State private var maximumContentHeight: CGFloat?
@@ -72,18 +73,20 @@ struct MenuBarPanel: View {
                     guard maximumContentHeight != maximumHeight else { return }
                     maximumContentHeight = maximumHeight
                 },
-                onVisibilityChange: { isVisible = $0 }
+                onVisibilityChange: setPanelVisibility
             )
         }
         .onAppear {
-            synchronizeIngests()
-            isVisible = true
+            setPanelVisibility(true)
         }
         .onChange(of: ingestConfigurations) {
             synchronizeIngests()
         }
+        .onChange(of: backgroundStreamingEnabled) {
+            synchronizeIngests()
+        }
         .onDisappear {
-            isVisible = false
+            setPanelVisibility(false)
         }
     }
 
@@ -188,8 +191,17 @@ struct MenuBarPanel: View {
         .accessibilityIdentifier("\(camera.cameraID.uuidString)-tile")
     }
 
-    private func synchronizeIngests() {
-        ingestStore.synchronize(playbackEnabled ? ingestConfigurations : [])
+    private func synchronizeIngests(isPanelVisible: Bool? = nil) {
+        let shouldStream = playbackEnabled && BackgroundStreaming.shouldStream(
+            isPanelVisible: isPanelVisible ?? isVisible,
+            isEnabled: backgroundStreamingEnabled
+        )
+        ingestStore.synchronize(shouldStream ? ingestConfigurations : [])
+    }
+
+    private func setPanelVisibility(_ isVisible: Bool) {
+        self.isVisible = isVisible
+        synchronizeIngests(isPanelVisible: isVisible)
     }
 
     private func setExpandedCamera(_ camera: Camera) {

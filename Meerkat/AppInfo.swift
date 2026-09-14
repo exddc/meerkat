@@ -11,6 +11,19 @@ enum AppInfo {
     }
 }
 
+enum BackgroundStreaming {
+    static let enabledKey = "backgroundStreamingEnabled"
+    static let defaultEnabled = true
+
+    static func isEnabled(in defaults: UserDefaults = .standard) -> Bool {
+        defaults.object(forKey: enabledKey) as? Bool ?? defaultEnabled
+    }
+
+    static func shouldStream(isPanelVisible: Bool, isEnabled: Bool) -> Bool {
+        isPanelVisible || isEnabled
+    }
+}
+
 enum CameraLabelVisibility: String, CaseIterable {
     case always
     case never

@@ -6,7 +6,7 @@ Peek at your cameras from the menu bar. Instantly.
 
 Meerkat is a macOS menu bar app that plays a live grid of Reolink (and more providers in the future) camera streams in a small window triggered from the menu bar icon. The app is designed to be lightweight and fast, and to use minimal resources.
 
-The stream connections are kept open in the background so the panel can show the livestream instantly.
+By default, stream connections stay open in the background so the panel can show live video instantly. You can turn off background streaming in Settings to disconnect cameras while the panel is closed.
 
 ## Installation
 
