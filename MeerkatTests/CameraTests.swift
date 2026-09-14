@@ -236,6 +236,30 @@ struct CameraConfigurationEditorTests {
         #expect(await probes.startedURLs.isEmpty)
     }
 
+    @Test func doesNotFlushConfigurationIntoDeletedCamera() throws {
+        let container = Persistence.preview(cameras: [])
+        let camera = Camera(name: "Front Door", streamURLString: "https://old.test/live")
+        camera.authenticationRequired = false
+        container.mainContext.insert(camera)
+        try container.mainContext.save()
+        let editor = CameraConfigurationEditor(
+            camera: camera,
+            debounceDuration: .seconds(30),
+            endpointCheck: { _ in }
+        )
+
+        var input = editor.input
+        input.address = "https://current.test/live"
+        editor.input = input
+        container.mainContext.delete(camera)
+        try container.mainContext.save()
+        #expect(camera.modelContext == nil)
+
+        editor.flush()
+
+        #expect(camera.streamURLString == "https://old.test/live")
+    }
+
     @Test func debouncesPlaybackConfigurationUpdates() async throws {
         let camera = Camera(name: "Front Door", streamURLString: "https://old.test/live")
         camera.authenticationRequired = false

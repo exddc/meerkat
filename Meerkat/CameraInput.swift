@@ -112,6 +112,7 @@ final class CameraConfigurationEditor: ObservableObject {
     @Published private(set) var endpointError: String?
 
     private let camera: Camera
+    private let requiresAttachedCamera: Bool
     private let debounceDuration: Duration
     private let endpointCheck: EndpointCheck
     private var updateRevision = 0
@@ -125,6 +126,7 @@ final class CameraConfigurationEditor: ObservableObject {
         }
     ) {
         self.camera = camera
+        requiresAttachedCamera = camera.modelContext != nil
         self.debounceDuration = debounceDuration
         self.endpointCheck = endpointCheck
         input = CameraInput(
@@ -168,7 +170,7 @@ final class CameraConfigurationEditor: ObservableObject {
                     return
                 }
                 guard self?.updateRevision == revision else { return }
-                self?.persist(input, url: url)
+                guard self?.persist(input, url: url) == true else { return }
 
                 try await endpointCheck(url)
                 try Task.checkCancellation()
@@ -183,13 +185,17 @@ final class CameraConfigurationEditor: ObservableObject {
         }
     }
 
-    private func persist(_ input: CameraInput, url: URL) {
+    @discardableResult
+    private func persist(_ input: CameraInput, url: URL) -> Bool {
+        guard !camera.isDeleted,
+              !requiresAttachedCamera || camera.modelContext != nil else { return false }
         if camera.authenticationRequired != input.requiresAuthentication {
             camera.authenticationRequired = input.requiresAuthentication
         }
         if camera.streamURLString != url.absoluteString {
             camera.streamURLString = url.absoluteString
         }
+        return true
     }
 
     private func setEndpointError(_ error: String, for revision: Int) {
