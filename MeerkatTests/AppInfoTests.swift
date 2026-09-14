@@ -40,4 +40,34 @@ struct AppInfoTests {
         #expect(!CameraLabelVisibility.onHover.isVisible(isHovering: false))
         #expect(CameraLabelVisibility.onHover.isVisible(isHovering: true))
     }
+
+    @Test
+    func backgroundStreamingDefaultsToEnabledAndPersistsOverrides() throws {
+        let suiteName = "AppInfoTests.backgroundStreaming.\(UUID().uuidString)"
+        let defaults = try #require(UserDefaults(suiteName: suiteName))
+        defer { defaults.removePersistentDomain(forName: suiteName) }
+
+        #expect(BackgroundStreaming.isEnabled(in: defaults))
+        defaults.set(false, forKey: BackgroundStreaming.enabledKey)
+        #expect(!BackgroundStreaming.isEnabled(in: defaults))
+    }
+
+    @Test(arguments: [
+        (isPanelVisible: true, isEnabled: true, expected: true),
+        (isPanelVisible: true, isEnabled: false, expected: true),
+        (isPanelVisible: false, isEnabled: true, expected: true),
+        (isPanelVisible: false, isEnabled: false, expected: false),
+    ])
+    func backgroundStreamingPolicy(
+        isPanelVisible: Bool,
+        isEnabled: Bool,
+        expected: Bool
+    ) {
+        #expect(
+            BackgroundStreaming.shouldStream(
+                isPanelVisible: isPanelVisible,
+                isEnabled: isEnabled
+            ) == expected
+        )
+    }
 }

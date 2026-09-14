@@ -69,9 +69,10 @@ final class MenuBarInteractionTests: XCTestCase {
         XCTAssertTrue(settings.waitForExistence(timeout: 5))
         settings.click()
         XCTAssertTrue(app.staticTexts["settings-title"].waitForExistence(timeout: 5))
+        XCTAssertTrue(app.checkBoxes["settings-background-streaming"].exists)
         XCTAssertTrue(app.buttons["settings-check-for-updates"].exists)
         XCTAssertTrue(app.staticTexts["settings-version"].exists)
-        addScreenshot(named: "TW-408 Settings")
+        addScreenshot(named: "TW-418 Settings")
     }
 
     @MainActor

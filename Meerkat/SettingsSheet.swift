@@ -10,6 +10,7 @@ struct SettingsSheet: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Camera.sortIndex) private var cameras: [Camera]
     @AppStorage(AppInfo.cameraLabelVisibilityKey) private var cameraLabelVisibility = CameraLabelVisibility.always
+    @AppStorage(BackgroundStreaming.enabledKey) private var backgroundStreamingEnabled = BackgroundStreaming.defaultEnabled
     @State private var cameraPendingRemoval: Camera?
     @State private var saveErrorMessage: String?
 
@@ -54,6 +55,22 @@ struct SettingsSheet: View {
                                 .fixedSize()
                                 .accessibilityIdentifier("settings-show-camera-labels")
                             }
+                        }
+                    }
+
+                    SettingsGroup(
+                        title: "Playback"
+                    ) {
+                        SettingsSurface {
+                            Toggle(isOn: $backgroundStreamingEnabled) {
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Text("Stream in the background")
+                                    Text("Keeps camera streams ready while the panel is closed and uses slightly more system resources")
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                            .accessibilityIdentifier("settings-background-streaming")
                         }
                     }
 
