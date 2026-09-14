@@ -203,20 +203,21 @@ else
 fi
 
 echo "Recording $LABEL for $DURATION..."
+RECORD_ARGUMENTS=(
+    record
+    --template "Activity Monitor"
+    --time-limit "$DURATION"
+    --output "$TRACE_PATH"
+    --no-prompt
+)
 if [[ "$MODE" == "attach" ]]; then
-    xcrun xctrace record \
-        --template "Activity Monitor" \
-        --time-limit "$DURATION" \
-        --output "$TRACE_PATH" \
-        --no-prompt \
-        --attach "$PROFILE_TARGET" >"$XCTRACE_LOG" 2>&1
+    RECORD_ARGUMENTS+=(--attach "$PROFILE_TARGET")
 else
-    xcrun xctrace record \
-        --template "Activity Monitor" \
-        --time-limit "$DURATION" \
-        --output "$TRACE_PATH" \
-        --no-prompt \
-        --launch -- "$PROFILE_TARGET" >"$XCTRACE_LOG" 2>&1
+    RECORD_ARGUMENTS+=(--launch -- "$PROFILE_TARGET")
+fi
+if ! xcrun xctrace "${RECORD_ARGUMENTS[@]}" >"$XCTRACE_LOG" 2>&1; then
+    tail -40 "$XCTRACE_LOG" >&2
+    exit 1
 fi
 
 echo "Exporting trace tables..."
