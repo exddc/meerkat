@@ -259,18 +259,13 @@ private struct SettingsSurface<Content: View>: View {
 private struct CameraRow: View {
     @Bindable var camera: Camera
     var onRemove: () -> Void
-    @State private var input: CameraInput
-    @State private var endpointProbeInput: CameraInput?
-    @State private var endpointError: String?
+    @StateObject private var editor: CameraConfigurationEditor
     @FocusState private var addressFocused: Bool
 
     init(camera: Camera, onRemove: @escaping () -> Void) {
         self.camera = camera
         self.onRemove = onRemove
-        var input = CameraInput(camera.streamURLString)
-        input.requiresAuthentication = camera.authenticationRequired
-            ?? (camera.streamURLString.isEmpty || input.address != camera.streamURLString)
-        _input = State(initialValue: input)
+        _editor = StateObject(wrappedValue: CameraConfigurationEditor(camera: camera))
     }
 
     var body: some View {
@@ -296,7 +291,7 @@ private struct CameraRow: View {
                     title: "Camera address",
                     detail: "Enter an IP address or a complete HTTPS URL"
                 ) {
-                    if let endpointError {
+                    if let endpointError = editor.endpointError {
                         Label(endpointError, systemImage: "exclamationmark.triangle.fill")
                             .font(.caption)
                             .foregroundStyle(.red)
@@ -314,20 +309,20 @@ private struct CameraRow: View {
                 Divider()
 
                 VStack(alignment: .leading, spacing: 10) {
-                    Toggle("Camera requires authentication", isOn: $input.requiresAuthentication)
+                    Toggle("Camera requires authentication", isOn: $editor.input.requiresAuthentication)
                         .toggleStyle(.checkbox)
                         .accessibilityIdentifier("\(camera.cameraID.uuidString)-auth")
 
-                    if input.requiresAuthentication {
+                    if editor.input.requiresAuthentication {
                         HStack(alignment: .top, spacing: 10) {
                             CameraField(title: "Username") {
-                                TextField("Username", text: $input.username)
+                                TextField("Username", text: $editor.input.username)
                                     .textFieldStyle(.roundedBorder)
                                     .accessibilityIdentifier("\(camera.cameraID.uuidString)-username")
                             }
 
                             CameraField(title: "Password") {
-                                SecureField("Password", text: $input.password)
+                                SecureField("Password", text: $editor.input.password)
                                     .textFieldStyle(.roundedBorder)
                                     .accessibilityIdentifier("\(camera.cameraID.uuidString)-password")
                             }
@@ -341,30 +336,11 @@ private struct CameraRow: View {
             .fill.quaternary,
             in: ConcentricRectangle(corners: .concentric(minimum: 12))
         )
-        .onChange(of: input) {
-            camera.authenticationRequired = input.requiresAuthentication
-            camera.streamURLString = input.streamURL?.absoluteString ?? input.address
-            endpointError = nil
-            endpointProbeInput = input
-        }
         .onChange(of: addressFocused) {
-            if !addressFocused { input.address = CameraInput(input.address).address }
+            if !addressFocused { editor.input.address = CameraInput(editor.input.address).address }
         }
-        .task(id: endpointProbeInput) {
-            guard let input = endpointProbeInput else { return }
-            guard !input.address.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
-            do {
-                try await Task.sleep(for: .milliseconds(700))
-                guard let url = input.streamURL else {
-                    endpointError = "Enter a valid camera address."
-                    return
-                }
-                try await CameraEndpointCheck(url: url).check()
-            } catch {
-                guard !Task.isCancelled else { return }
-                endpointError = (error as? CameraEndpointCheck.Failure)?.errorDescription
-                    ?? "Could not reach the camera. Check the address and connection."
-            }
+        .onDisappear {
+            editor.flush()
         }
     }
 
@@ -399,13 +375,13 @@ private struct CameraRow: View {
 
     private var addressBinding: Binding<String> {
         Binding(
-            get: { input.address },
+            get: { editor.input.address },
             set: { address in
-                var updated = input
+                var updated = editor.input
                 updated.address = address
                 updated.importCredentials()
                 updated.address = address
-                input = updated
+                editor.input = updated
             }
         )
     }
