@@ -12,6 +12,7 @@ struct SettingsSheet: View {
     @AppStorage(AppInfo.cameraLabelVisibilityKey) private var cameraLabelVisibility = CameraLabelVisibility.always
     @AppStorage(BackgroundStreaming.enabledKey) private var backgroundStreamingEnabled = BackgroundStreaming.defaultEnabled
     @State private var cameraPendingRemoval: Camera?
+    @State private var pendingSave: Task<Void, Never>?
     @State private var saveErrorMessage: String?
 
     var body: some View {
@@ -35,6 +36,10 @@ struct SettingsSheet: View {
                         ForEach(cameras) { camera in
                             CameraRow(camera: camera) {
                                 cameraPendingRemoval = camera
+                            } onChange: {
+                                scheduleSave()
+                            } onFlush: {
+                                flushPendingSave()
                             }
                         }
                     }
@@ -136,6 +141,9 @@ struct SettingsSheet: View {
                 Text(saveErrorMessage)
             }
         }
+        .onDisappear {
+            flushPendingSave()
+        }
     }
 
     private var headerBar: some View {
@@ -234,10 +242,26 @@ struct SettingsSheet: View {
 
     private func saveChanges() {
         do {
-            try modelContext.save()
+            try Persistence.save(modelContext)
         } catch {
             saveErrorMessage = error.localizedDescription
         }
+    }
+
+    private func scheduleSave() {
+        pendingSave?.cancel()
+        pendingSave = Task { @MainActor in
+            try? await Task.sleep(for: .milliseconds(400))
+            guard !Task.isCancelled else { return }
+            pendingSave = nil
+            saveChanges()
+        }
+    }
+
+    private func flushPendingSave() {
+        pendingSave?.cancel()
+        pendingSave = nil
+        saveChanges()
     }
 }
 
@@ -276,12 +300,21 @@ private struct SettingsSurface<Content: View>: View {
 private struct CameraRow: View {
     @Bindable var camera: Camera
     var onRemove: () -> Void
+    var onChange: () -> Void
+    var onFlush: () -> Void
     @StateObject private var editor: CameraConfigurationEditor
     @FocusState private var addressFocused: Bool
 
-    init(camera: Camera, onRemove: @escaping () -> Void) {
+    init(
+        camera: Camera,
+        onRemove: @escaping () -> Void,
+        onChange: @escaping () -> Void,
+        onFlush: @escaping () -> Void
+    ) {
         self.camera = camera
         self.onRemove = onRemove
+        self.onChange = onChange
+        self.onFlush = onFlush
         _editor = StateObject(wrappedValue: CameraConfigurationEditor(camera: camera))
     }
 
@@ -356,8 +389,18 @@ private struct CameraRow: View {
         .onChange(of: addressFocused) {
             if !addressFocused { editor.input.address = CameraInput(editor.input.address).address }
         }
+        .onChange(of: camera.name) {
+            onChange()
+        }
+        .onChange(of: camera.streamURLString) {
+            onChange()
+        }
+        .onChange(of: camera.authenticationRequired) {
+            onChange()
+        }
         .onDisappear {
             editor.flush()
+            onFlush()
         }
     }
 

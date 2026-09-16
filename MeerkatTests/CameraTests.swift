@@ -1,4 +1,5 @@
 import Foundation
+import SwiftData
 import Testing
 @testable import Meerkat
 
@@ -35,6 +36,58 @@ struct CameraTests {
         }
     }
 
+}
+
+@MainActor
+struct CameraPersistenceTests {
+    @Test func savesCameraSettingsAcrossContainerRestart() throws {
+        let directory = FileManager.default.temporaryDirectory
+            .appending(path: UUID().uuidString, directoryHint: .isDirectory)
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let configuration = ModelConfiguration(
+            schema: Persistence.schema,
+            url: directory.appending(path: "Meerkat.store")
+        )
+        let cameraID = UUID()
+
+        do {
+            let container = try ModelContainer(
+                for: Persistence.schema,
+                configurations: [configuration]
+            )
+            container.mainContext.insert(
+                Camera(
+                    name: "Front Door",
+                    streamURLString: "https://camera.test/live",
+                    cameraID: cameraID
+                )
+            )
+            try container.mainContext.save()
+        }
+
+        do {
+            let container = try ModelContainer(
+                for: Persistence.schema,
+                configurations: [configuration]
+            )
+            let cameras = try container.mainContext.fetch(FetchDescriptor<Camera>())
+            let camera = try #require(cameras.first { $0.cameraID == cameraID })
+            camera.name = "Back Garden"
+            camera.streamURLString = "https://camera.test/updated"
+            try Persistence.save(container.mainContext)
+        }
+
+        let reopenedContainer = try ModelContainer(
+            for: Persistence.schema,
+            configurations: [configuration]
+        )
+        let cameras = try reopenedContainer.mainContext.fetch(FetchDescriptor<Camera>())
+
+        let camera = try #require(cameras.first { $0.cameraID == cameraID })
+        #expect(camera.name == "Back Garden")
+        #expect(camera.streamURLString == "https://camera.test/updated")
+    }
 }
 
 struct CameraInputTests {

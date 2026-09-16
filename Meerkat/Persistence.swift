@@ -20,6 +20,13 @@ enum Persistence {
     }
 
     @MainActor
+    static func save(_ context: ModelContext? = nil) throws {
+        let context = context ?? container.mainContext
+        guard context.hasChanges else { return }
+        try context.save()
+    }
+
+    @MainActor
     static func preview(
         cameras: [(name: String, url: String)] = [
             ("Camera 1", "https://camera.test/1"),
