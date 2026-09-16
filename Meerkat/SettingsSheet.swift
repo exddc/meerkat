@@ -11,6 +11,7 @@ struct SettingsSheet: View {
     @Query(sort: \Camera.sortIndex) private var cameras: [Camera]
     @AppStorage(AppInfo.cameraLabelVisibilityKey) private var cameraLabelVisibility = CameraLabelVisibility.always
     @AppStorage(BackgroundStreaming.enabledKey) private var backgroundStreamingEnabled = BackgroundStreaming.defaultEnabled
+    @StateObject private var launchAtLoginController = LaunchAtLoginController()
     @State private var cameraPendingRemoval: Camera?
     @State private var pendingSave: Task<Void, Never>?
     @State private var saveErrorMessage: String?
@@ -21,6 +22,23 @@ struct SettingsSheet: View {
 
             ScrollView {
                 VStack(spacing: 12) {
+                    SettingsGroup(
+                        title: "General"
+                    ) {
+                        SettingsSurface {
+                            Toggle(isOn: launchAtLoginBinding) {
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Text("Start Meerkat at login")
+                                    Text(launchAtLoginDetail)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                            .disabled(launchAtLoginController.isUpdating)
+                            .accessibilityIdentifier("settings-start-at-login")
+                        }
+                    }
+
                     SettingsGroup(
                         title: "Cameras"
                     ) {
@@ -141,8 +159,41 @@ struct SettingsSheet: View {
                 Text(saveErrorMessage)
             }
         }
+        .alert(
+            "Could not update login setting",
+            isPresented: Binding(
+                get: { launchAtLoginController.errorMessage != nil },
+                set: { if !$0 { launchAtLoginController.errorMessage = nil } }
+            )
+        ) {
+            Button("OK", role: .cancel) {
+                launchAtLoginController.errorMessage = nil
+            }
+        } message: {
+            if let errorMessage = launchAtLoginController.errorMessage {
+                Text(errorMessage)
+            }
+        }
+        .onAppear {
+            launchAtLoginController.refresh()
+        }
         .onDisappear {
             flushPendingSave()
+        }
+    }
+
+    private var launchAtLoginBinding: Binding<Bool> {
+        Binding(
+            get: { launchAtLoginController.isEnabled },
+            set: { launchAtLoginController.setEnabled($0) }
+        )
+    }
+
+    private var launchAtLoginDetail: String {
+        if launchAtLoginController.requiresApproval {
+            "Approval is required in System Settings"
+        } else {
+            "Opens automatically when you log in"
         }
     }
 

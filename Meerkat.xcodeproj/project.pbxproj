@@ -32,6 +32,8 @@
 		C00000000000000000000003 /* CameraIngestStore.swift in Sources */ = {isa = PBXBuildFile; fileRef = C00000000000000000000004 /* CameraIngestStore.swift */; };
 		D00000000000000000000001 /* UpdaterController.swift in Sources */ = {isa = PBXBuildFile; fileRef = D00000000000000000000002 /* UpdaterController.swift */; };
 		D00000000000000000000003 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = D00000000000000000000005 /* Sparkle */; };
+		E00000000000000000000001 /* LaunchAtLoginController.swift in Sources */ = {isa = PBXBuildFile; fileRef = E00000000000000000000003 /* LaunchAtLoginController.swift */; };
+		E00000000000000000000002 /* LaunchAtLoginControllerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E00000000000000000000004 /* LaunchAtLoginControllerTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -73,6 +75,8 @@
 		C00000000000000000000004 /* CameraIngestStore.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraIngestStore.swift; sourceTree = "<group>"; };
 		D00000000000000000000002 /* UpdaterController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = UpdaterController.swift; sourceTree = "<group>"; };
 		D00000000000000000000006 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
+		E00000000000000000000003 /* LaunchAtLoginController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchAtLoginController.swift; sourceTree = "<group>"; };
+		E00000000000000000000004 /* LaunchAtLoginControllerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchAtLoginControllerTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -125,6 +129,7 @@
 				B00000000000000000000002 /* AVCSampleBuilder.swift */,
 				B00000000000000000000001 /* FLVParser.swift */,
 				B00000000000000000000004 /* PlaybackState.swift */,
+				E00000000000000000000003 /* LaunchAtLoginController.swift */,
 				A00000000000000000000025 /* CameraGridLayout.swift */,
 				A00000000000000000000012 /* MeerkatApp.swift */,
 				A00000000000000000000013 /* MenuBarPanel.swift */,
@@ -145,6 +150,7 @@
 				A0000000000000000000001C /* CameraTests.swift */,
 				B00000000000000000000021 /* FLVPlaybackTests.swift */,
 				A00000000000000000000026 /* CameraGridLayoutTests.swift */,
+				E00000000000000000000004 /* LaunchAtLoginControllerTests.swift */,
 			);
 			path = MeerkatTests;
 			sourceTree = "<group>";
@@ -311,6 +317,7 @@
 				B0000000000000000000000C /* AVCSampleBuilder.swift in Sources */,
 				B0000000000000000000000B /* FLVParser.swift in Sources */,
 				B0000000000000000000000E /* PlaybackState.swift in Sources */,
+				E00000000000000000000001 /* LaunchAtLoginController.swift in Sources */,
 				A0000000000000000000000F /* CameraGridLayout.swift in Sources */,
 				A00000000000000000000002 /* MeerkatApp.swift in Sources */,
 				A0000000000000000000000D /* Persistence.swift in Sources */,
@@ -331,6 +338,7 @@
 				A0000000000000000000000A /* CameraTests.swift in Sources */,
 				B00000000000000000000022 /* FLVPlaybackTests.swift in Sources */,
 				A00000000000000000000010 /* CameraGridLayoutTests.swift in Sources */,
+				E00000000000000000000002 /* LaunchAtLoginControllerTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};
