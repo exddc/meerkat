@@ -23,23 +23,6 @@ struct SettingsSheet: View {
             ScrollView {
                 VStack(spacing: 12) {
                     SettingsGroup(
-                        title: "General"
-                    ) {
-                        SettingsSurface {
-                            Toggle(isOn: launchAtLoginBinding) {
-                                VStack(alignment: .leading, spacing: 1) {
-                                    Text("Start Meerkat at login")
-                                    Text(launchAtLoginDetail)
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
-                                }
-                            }
-                            .disabled(launchAtLoginController.isUpdating)
-                            .accessibilityIdentifier("settings-start-at-login")
-                        }
-                    }
-
-                    SettingsGroup(
                         title: "Cameras"
                     ) {
                         Button {
@@ -59,6 +42,23 @@ struct SettingsSheet: View {
                             } onFlush: {
                                 flushPendingSave()
                             }
+                        }
+                    }
+
+                    SettingsGroup(
+                        title: "General"
+                    ) {
+                        SettingsSurface {
+                            Toggle(isOn: launchAtLoginBinding) {
+                                VStack(alignment: .leading, spacing: 1) {
+                                    Text("Start Meerkat at login")
+                                    Text(launchAtLoginDetail)
+                                        .font(.caption)
+                                        .foregroundStyle(.secondary)
+                                }
+                            }
+                            .disabled(launchAtLoginController.isUpdating)
+                            .accessibilityIdentifier("settings-start-at-login")
                         }
                     }
 
