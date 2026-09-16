@@ -20,9 +20,10 @@ enum Persistence {
     }
 
     @MainActor
-    static func save() throws {
-        guard container.mainContext.hasChanges else { return }
-        try container.mainContext.save()
+    static func save(_ context: ModelContext? = nil) throws {
+        let context = context ?? container.mainContext
+        guard context.hasChanges else { return }
+        try context.save()
     }
 
     @MainActor

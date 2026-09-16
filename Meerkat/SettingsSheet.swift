@@ -241,9 +241,8 @@ struct SettingsSheet: View {
     }
 
     private func saveChanges() {
-        guard modelContext.hasChanges else { return }
         do {
-            try modelContext.save()
+            try Persistence.save(modelContext)
         } catch {
             saveErrorMessage = error.localizedDescription
         }

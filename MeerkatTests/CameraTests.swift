@@ -66,6 +66,18 @@ struct CameraPersistenceTests {
             try container.mainContext.save()
         }
 
+        do {
+            let container = try ModelContainer(
+                for: Persistence.schema,
+                configurations: [configuration]
+            )
+            let cameras = try container.mainContext.fetch(FetchDescriptor<Camera>())
+            let camera = try #require(cameras.first { $0.cameraID == cameraID })
+            camera.name = "Back Garden"
+            camera.streamURLString = "https://camera.test/updated"
+            try Persistence.save(container.mainContext)
+        }
+
         let reopenedContainer = try ModelContainer(
             for: Persistence.schema,
             configurations: [configuration]
@@ -73,8 +85,8 @@ struct CameraPersistenceTests {
         let cameras = try reopenedContainer.mainContext.fetch(FetchDescriptor<Camera>())
 
         let camera = try #require(cameras.first { $0.cameraID == cameraID })
-        #expect(camera.name == "Front Door")
-        #expect(camera.streamURLString == "https://camera.test/live")
+        #expect(camera.name == "Back Garden")
+        #expect(camera.streamURLString == "https://camera.test/updated")
     }
 }
 
