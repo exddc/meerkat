@@ -16,6 +16,7 @@ final class MeerkatApplicationDelegate: NSObject, NSApplicationDelegate {
     }
 
     func applicationWillTerminate(_ notification: Notification) {
+        try? Persistence.save()
         ingestStore.stopAll()
     }
 }
