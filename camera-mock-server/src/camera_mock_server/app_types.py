@@ -6,3 +6,6 @@ class Vendor(StrEnum):
     AXIS = "axis"
     HIKVISION = "hikvision"
     DAHUA = "dahua"
+    RING = "ring"
+    UBIQUITI = "ubiquiti"
+    EUFY = "eufy"

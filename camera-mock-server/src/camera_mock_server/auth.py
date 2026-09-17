@@ -56,7 +56,7 @@ def _valid_digest(request: Request, value: str, username: str, password: str) ->
 
 
 def camera_auth(
-    vendor: Vendor, username: str, password: str, require_auth: bool
+    vendor: Vendor, username: str, password: str, token: str, require_auth: bool
 ) -> Callable[[Request], None]:
     def authenticate(request: Request) -> None:
         if not require_auth:
@@ -69,6 +69,24 @@ def camera_auth(
             ):
                 return
             raise _unauthorized()
+
+        if vendor is Vendor.RING:
+            supplied = request.headers.get("Authorization", "")
+            if secrets.compare_digest(supplied, f"Bearer {token}"):
+                return
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid bearer token",
+                headers={"WWW-Authenticate": "Bearer"},
+            )
+
+        if vendor is Vendor.UBIQUITI:
+            if secrets.compare_digest(request.headers.get("X-API-Key", ""), token):
+                return
+            raise HTTPException(
+                status_code=status.HTTP_401_UNAUTHORIZED,
+                detail="Invalid API key",
+            )
 
         authorization = request.headers.get("Authorization", "")
         scheme, _, value = authorization.partition(" ")

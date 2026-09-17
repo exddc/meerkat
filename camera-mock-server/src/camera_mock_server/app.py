@@ -13,10 +13,13 @@ def create_app(
     *,
     username: str = "admin",
     password: str = "meerkat",
+    token: str = "meerkat",
     require_auth: bool = True,
 ) -> FastAPI:
+    if vendor is Vendor.EUFY:
+        raise ValueError("The eufy profile uses the RTSP server")
     app = FastAPI(title="Camera Mock Server", docs_url=None, redoc_url=None, openapi_url=None)
-    authenticate = camera_auth(vendor, username, password, require_auth)
+    authenticate = camera_auth(vendor, username, password, token, require_auth)
 
     @app.get("/__mock__/health")
     def health() -> dict[str, str]:
@@ -27,6 +30,8 @@ def create_app(
         Vendor.AXIS: _install_axis,
         Vendor.HIKVISION: _install_hikvision,
         Vendor.DAHUA: _install_dahua,
+        Vendor.RING: _install_ring,
+        Vendor.UBIQUITI: _install_ubiquiti,
     }
     installers[vendor](app, authenticate)
     return app
@@ -101,6 +106,99 @@ def _install_dahua(app: FastAPI, authenticate: Callable[[Request], None]) -> Non
     async def stream() -> StreamingResponse:
         return StreamingResponse(
             mjpeg_stream(), media_type="multipart/x-mixed-replace; boundary=meerkat"
+        )
+
+
+def _install_ring(app: FastAPI, authenticate: Callable[[Request], None]) -> None:
+    device_id = "ava1.ring.device.meerkat"
+
+    def device() -> dict[str, object]:
+        return {
+            "type": "devices",
+            "id": device_id,
+            "attributes": {"name": "Front Door Camera"},
+            "relationships": {
+                "status": {
+                    "data": {"type": "device-status", "id": f"{device_id}.status"},
+                    "links": {"related": f"/v1/devices/{device_id}/status"},
+                },
+                "capabilities": {
+                    "data": {"type": "device-capabilities", "id": f"{device_id}.capabilities"},
+                    "links": {"related": f"/v1/devices/{device_id}/capabilities"},
+                },
+            },
+        }
+
+    @app.get("/v1/devices", dependencies=[Depends(authenticate)])
+    def devices() -> dict[str, object]:
+        return {"meta": {"time": "2026-01-01T00:00:00Z"}, "data": [device()]}
+
+    @app.get("/v1/devices/{requested_id}", dependencies=[Depends(authenticate)])
+    def device_details(requested_id: str) -> Response:
+        if requested_id != device_id:
+            return JSONResponse({"errors": [{"status": "404"}]}, status_code=404)
+        return JSONResponse({"data": device()})
+
+    @app.get("/v1/devices/{requested_id}/status", dependencies=[Depends(authenticate)])
+    def status(requested_id: str) -> Response:
+        if requested_id != device_id:
+            return JSONResponse({"errors": [{"status": "404"}]}, status_code=404)
+        data = {
+            "type": "device-status",
+            "id": f"{device_id}.status",
+            "attributes": {"online": True},
+        }
+        return JSONResponse({"data": data})
+
+    @app.post(
+        "/v1/devices/{requested_id}/media/image/download",
+        dependencies=[Depends(authenticate)],
+    )
+    def snapshot(requested_id: str) -> Response:
+        if requested_id != device_id:
+            return JSONResponse({"errors": [{"status": "404"}]}, status_code=404)
+        return Response(JPEG_FIXTURE, media_type="image/jpeg")
+
+
+def _install_ubiquiti(app: FastAPI, authenticate: Callable[[Request], None]) -> None:
+    camera_id = "66d025b301ebc903e80003ea"
+    camera = {
+        "id": camera_id,
+        "modelKey": "camera",
+        "state": "CONNECTED",
+        "name": "Front Door",
+        "type": "UVC G5 Bullet",
+        "guid": "00000000-0000-0000-0000-000000000001",
+        "mac": "24A43C3DFEB9",
+    }
+
+    @app.get("/v1/cameras", dependencies=[Depends(authenticate)])
+    def cameras() -> list[dict[str, str]]:
+        return [camera]
+
+    @app.get("/v1/cameras/{requested_id}", dependencies=[Depends(authenticate)])
+    def camera_details(requested_id: str) -> Response:
+        if requested_id != camera_id:
+            return JSONResponse({"error": "Camera not found"}, status_code=404)
+        return JSONResponse(camera)
+
+    @app.get("/v1/cameras/{requested_id}/snapshot", dependencies=[Depends(authenticate)])
+    def snapshot(requested_id: str) -> Response:
+        if requested_id != camera_id:
+            return JSONResponse({"error": "Camera not found"}, status_code=404)
+        return Response(JPEG_FIXTURE, media_type="image/jpeg")
+
+    @app.get("/v1/cameras/{requested_id}/rtsps-stream", dependencies=[Depends(authenticate)])
+    def streams(requested_id: str) -> Response:
+        if requested_id != camera_id:
+            return JSONResponse({"error": "Camera not found"}, status_code=404)
+        return JSONResponse(
+            {
+                "high": "rtsps://127.0.0.1:7441/meerkat-high?enableSrtp",
+                "medium": "rtsps://127.0.0.1:7441/meerkat-medium?enableSrtp",
+                "low": None,
+                "package": None,
+            }
         )
 
 
