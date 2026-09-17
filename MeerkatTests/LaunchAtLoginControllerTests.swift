@@ -1,8 +1,9 @@
-import XCTest
+import Testing
 @testable import Meerkat
 
 @MainActor
-final class LaunchAtLoginControllerTests: XCTestCase {
+struct LaunchAtLoginControllerTests {
+    @Test
     func testEnablingRegistersService() async {
         let service = LaunchAtLoginServiceStub(status: .disabled)
         let controller = LaunchAtLoginController(service: service)
@@ -10,10 +11,11 @@ final class LaunchAtLoginControllerTests: XCTestCase {
         controller.setEnabled(true)
         await waitForUpdate(toFinishIn: controller)
 
-        XCTAssertEqual(service.registerCallCount, 1)
-        XCTAssertTrue(controller.isEnabled)
+        #expect(service.registerCallCount == 1)
+        #expect(controller.isEnabled)
     }
 
+    @Test
     func testDisablingUnregistersService() async {
         let service = LaunchAtLoginServiceStub(status: .enabled)
         let controller = LaunchAtLoginController(service: service)
@@ -21,10 +23,11 @@ final class LaunchAtLoginControllerTests: XCTestCase {
         controller.setEnabled(false)
         await waitForUpdate(toFinishIn: controller)
 
-        XCTAssertEqual(service.unregisterCallCount, 1)
-        XCTAssertFalse(controller.isEnabled)
+        #expect(service.unregisterCallCount == 1)
+        #expect(!controller.isEnabled)
     }
 
+    @Test
     func testFailureRestoresServiceState() async {
         let service = LaunchAtLoginServiceStub(status: .disabled)
         service.registerError = TestError.registrationFailed
@@ -33,14 +36,33 @@ final class LaunchAtLoginControllerTests: XCTestCase {
         controller.setEnabled(true)
         await waitForUpdate(toFinishIn: controller)
 
-        XCTAssertFalse(controller.isEnabled)
-        XCTAssertNotNil(controller.errorMessage)
+        #expect(!controller.isEnabled)
+        #expect(controller.errorMessage != nil)
     }
 
-    private func waitForUpdate(toFinishIn controller: LaunchAtLoginController) async {
-        while controller.isUpdating {
-            await Task.yield()
+    @Test
+    func testPendingApprovalCanOpenSystemSettings() {
+        let service = LaunchAtLoginServiceStub(status: .requiresApproval)
+        let controller = LaunchAtLoginController(service: service)
+
+        controller.openSystemSettings()
+
+        #expect(controller.isEnabled)
+        #expect(controller.requiresApproval)
+        #expect(service.openSystemSettingsCallCount == 1)
+    }
+
+    private func waitForUpdate(
+        toFinishIn controller: LaunchAtLoginController,
+        timeout: Duration = .seconds(2)
+    ) async {
+        let clock = ContinuousClock()
+        let deadline = clock.now + timeout
+        while clock.now < deadline {
+            if !controller.isUpdating { return }
+            try? await Task.sleep(for: .milliseconds(10))
         }
+        #expect(!controller.isUpdating, "Login item update did not finish before \(timeout)")
     }
 }
 
@@ -50,6 +72,7 @@ private final class LaunchAtLoginServiceStub: LaunchAtLoginServicing {
     var registerError: Error?
     private(set) var registerCallCount = 0
     private(set) var unregisterCallCount = 0
+    private(set) var openSystemSettingsCallCount = 0
 
     init(status: LaunchAtLoginStatus) {
         self.status = status
@@ -64,6 +87,10 @@ private final class LaunchAtLoginServiceStub: LaunchAtLoginServicing {
     func unregister() async throws {
         unregisterCallCount += 1
         status = .disabled
+    }
+
+    func openSystemSettings() {
+        openSystemSettingsCallCount += 1
     }
 }
 

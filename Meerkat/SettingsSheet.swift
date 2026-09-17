@@ -49,16 +49,27 @@ struct SettingsSheet: View {
                         title: "General"
                     ) {
                         SettingsSurface {
-                            Toggle(isOn: launchAtLoginBinding) {
-                                VStack(alignment: .leading, spacing: 1) {
-                                    Text("Start Meerkat at login")
-                                    Text(launchAtLoginDetail)
-                                        .font(.caption)
-                                        .foregroundStyle(.secondary)
+                            VStack(alignment: .leading, spacing: 8) {
+                                Toggle(isOn: launchAtLoginBinding) {
+                                    VStack(alignment: .leading, spacing: 1) {
+                                        Text("Start Meerkat at login")
+                                        Text(launchAtLoginDetail)
+                                            .font(.caption)
+                                            .foregroundStyle(.secondary)
+                                    }
+                                }
+                                .disabled(launchAtLoginController.isUpdating)
+                                .accessibilityIdentifier("settings-start-at-login")
+
+                                if launchAtLoginController.requiresApproval {
+                                    Button("Open Login Items…") {
+                                        launchAtLoginController.openSystemSettings()
+                                    }
+                                    .controlSize(.small)
+                                    .frame(maxWidth: .infinity, alignment: .trailing)
+                                    .accessibilityIdentifier("settings-open-login-items")
                                 }
                             }
-                            .disabled(launchAtLoginController.isUpdating)
-                            .accessibilityIdentifier("settings-start-at-login")
                         }
                     }
 

@@ -15,6 +15,7 @@ protocol LaunchAtLoginServicing {
     var status: LaunchAtLoginStatus { get }
     func register() throws
     func unregister() async throws
+    func openSystemSettings()
 }
 
 struct SystemLaunchAtLoginService: LaunchAtLoginServicing {
@@ -37,6 +38,10 @@ struct SystemLaunchAtLoginService: LaunchAtLoginServicing {
 
     func unregister() async throws {
         try await service.unregister()
+    }
+
+    func openSystemSettings() {
+        SMAppService.openSystemSettingsLoginItems()
     }
 }
 
@@ -82,5 +87,9 @@ final class LaunchAtLoginController: ObservableObject {
                 errorMessage = error.localizedDescription
             }
         }
+    }
+
+    func openSystemSettings() {
+        service.openSystemSettings()
     }
 }
