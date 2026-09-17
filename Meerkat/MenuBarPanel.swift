@@ -15,8 +15,12 @@ struct MenuBarPanel: View {
 
     private let playbackEnabled: Bool
     private let panelWidth = CameraGridLayout.panelWidth
+    private var visibleCameras: [Camera] {
+        cameras.filter(\.isVisible)
+    }
+
     private var gridPanelHeight: CGFloat {
-        CameraGridLayout.panelHeight(for: cameras.count)
+        CameraGridLayout.panelHeight(for: visibleCameras.count)
     }
 
     private var gridContentHeight: CGFloat {
@@ -48,7 +52,7 @@ struct MenuBarPanel: View {
     }
 
     private var ingestConfigurations: [CameraIngestConfiguration] {
-        cameras.map(CameraIngestConfiguration.init)
+        visibleCameras.map(CameraIngestConfiguration.init)
     }
 
     var body: some View {
@@ -97,7 +101,7 @@ struct MenuBarPanel: View {
                     expandedCameraID: expandedCameraID,
                     viewportSize: proxy.size
                 ) {
-                    ForEach(cameras) { camera in
+                    ForEach(visibleCameras) { camera in
                         interactiveTile(camera)
                         .layoutValue(key: CameraTileIDKey.self, value: camera.cameraID)
                         .opacity(
@@ -120,7 +124,7 @@ struct MenuBarPanel: View {
         }
         .frame(maxWidth: .infinity, maxHeight: .infinity, alignment: .top)
         .overlay {
-            if cameras.isEmpty {
+            if visibleCameras.isEmpty {
                 VStack(spacing: 10) {
                     Image(AppInfo.menuBarIcon)
                         .renderingMode(.template)
@@ -134,7 +138,7 @@ struct MenuBarPanel: View {
                         Text(AppInfo.name)
                             .font(.headline)
 
-                        Text("Add a camera in Settings")
+                        Text(cameras.isEmpty ? "Add a camera in Settings" : "Show a camera in Settings")
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }
@@ -179,13 +183,13 @@ struct MenuBarPanel: View {
         .buttonStyle(.plain)
         .allowsHitTesting(
             expandedCameraID != nil
-                || CameraGridLayout.canExpandTiles(for: cameras.count)
+                || CameraGridLayout.canExpandTiles(for: visibleCameras.count)
         )
         .accessibilityLabel(camera.name)
         .accessibilityHint(
             expandedCameraID == camera.cameraID
                 ? "Show all cameras"
-                : CameraGridLayout.canExpandTiles(for: cameras.count)
+                : CameraGridLayout.canExpandTiles(for: visibleCameras.count)
                     ? "Expand camera"
                     : ""
         )
@@ -207,7 +211,7 @@ struct MenuBarPanel: View {
 
     private func setExpandedCamera(_ camera: Camera) {
         guard expandedCameraID == camera.cameraID
-                || CameraGridLayout.canExpandTiles(for: cameras.count) else {
+                || CameraGridLayout.canExpandTiles(for: visibleCameras.count) else {
             return
         }
         let animation: Animation? = reduceMotion ? nil : .smooth(duration: 0.3)
