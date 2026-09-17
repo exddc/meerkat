@@ -460,6 +460,9 @@ private struct CameraRow: View {
         .onChange(of: camera.authenticationRequired) {
             onChange()
         }
+        .onChange(of: camera.isVisible) {
+            onChange()
+        }
         .onDisappear {
             editor.flush()
             onFlush()
@@ -481,6 +484,17 @@ private struct CameraRow: View {
             }
 
             Spacer()
+
+            Button {
+                camera.isVisible.toggle()
+            } label: {
+                Image(systemName: camera.isVisible ? "eye" : "eye.slash")
+                    .frame(width: 24, height: 24)
+            }
+            .buttonStyle(.borderless)
+            .help(camera.isVisible ? "Hide camera" : "Show camera")
+            .accessibilityLabel(camera.isVisible ? "Hide camera" : "Show camera")
+            .accessibilityIdentifier("\(camera.cameraID.uuidString)-visibility")
 
             Button(role: .destructive, action: onRemove) {
                 Image(systemName: "trash")

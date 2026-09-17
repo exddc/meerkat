@@ -56,6 +56,36 @@ final class MenuBarInteractionTests: XCTestCase {
     }
 
     @MainActor
+    func testCameraVisibilityControlsGrid() {
+        let app = XCUIApplication()
+        app.launch()
+        defer { app.terminate() }
+
+        let statusItem = app.menuBars.statusItems["Meerkat"]
+        XCTAssertTrue(statusItem.waitForExistence(timeout: 5))
+        statusItem.click()
+
+        let settings = app.buttons["settings-button"]
+        XCTAssertTrue(settings.waitForExistence(timeout: 5))
+        settings.click()
+        resetCameras(in: app, count: 2)
+
+        let visibilityButtons = app.buttons.matching(
+            NSPredicate(format: "identifier ENDSWITH '-visibility'")
+        )
+        XCTAssertEqual(visibilityButtons.count, 2)
+        visibilityButtons.firstMatch.click()
+        XCTAssertEqual(visibilityButtons.firstMatch.label, "Show camera")
+        addScreenshot(named: "TW-407 Settings")
+
+        app.buttons["settings-back"].click()
+        let tiles = app.buttons.matching(
+            NSPredicate(format: "identifier ENDSWITH '-tile'")
+        )
+        XCTAssertEqual(tiles.count, 1)
+    }
+
+    @MainActor
     func testSettingsContents() {
         let app = XCUIApplication()
         app.launch()

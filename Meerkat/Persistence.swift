@@ -16,7 +16,9 @@ enum Persistence {
     @MainActor
     static func cameraIngestConfigurations() -> [CameraIngestConfiguration] {
         let descriptor = FetchDescriptor<Camera>(sortBy: [SortDescriptor(\Camera.sortIndex)])
-        return (try? container.mainContext.fetch(descriptor))?.map(CameraIngestConfiguration.init) ?? []
+        return (try? container.mainContext.fetch(descriptor))?
+            .filter(\.isVisible)
+            .map(CameraIngestConfiguration.init) ?? []
     }
 
     @MainActor

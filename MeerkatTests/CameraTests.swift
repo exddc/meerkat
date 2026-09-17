@@ -36,6 +36,13 @@ struct CameraTests {
         }
     }
 
+    @Test
+    func camerasAreVisibleByDefault() {
+        let camera = Camera(name: "Front Door", streamURLString: "https://camera.test/live")
+
+        #expect(camera.isVisible)
+    }
+
 }
 
 @MainActor
@@ -75,6 +82,7 @@ struct CameraPersistenceTests {
             let camera = try #require(cameras.first { $0.cameraID == cameraID })
             camera.name = "Back Garden"
             camera.streamURLString = "https://camera.test/updated"
+            camera.isVisible = false
             try Persistence.save(container.mainContext)
         }
 
@@ -87,6 +95,7 @@ struct CameraPersistenceTests {
         let camera = try #require(cameras.first { $0.cameraID == cameraID })
         #expect(camera.name == "Back Garden")
         #expect(camera.streamURLString == "https://camera.test/updated")
+        #expect(!camera.isVisible)
     }
 }
 

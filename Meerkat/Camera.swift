@@ -8,17 +8,20 @@ final class Camera {
     var streamURLString: String
     var authenticationRequired: Bool? = nil
     var sortIndex: Int
+    var isVisible: Bool = true
 
     init(
         name: String,
         streamURLString: String,
         sortIndex: Int = 0,
+        isVisible: Bool = true,
         cameraID: UUID = UUID()
     ) {
         self.cameraID = cameraID
         self.name = name
         self.streamURLString = streamURLString
         self.sortIndex = sortIndex
+        self.isVisible = isVisible
     }
 
     var streamURL: URL {
