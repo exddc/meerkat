@@ -151,8 +151,9 @@ struct MenuBarPanel: View {
                 Image(systemName: "gearshape")
             }
             .buttonStyle(.glass)
+            .buttonBorderShape(.circle)
             .controlSize(.small)
-            .padding(12)
+            .padding(8)
             .accessibilityLabel("Settings")
             .accessibilityIdentifier("settings-button")
             .opacity(expandedCameraID == nil ? 1 : 0)
