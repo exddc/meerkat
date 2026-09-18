@@ -3,8 +3,7 @@ import XCTest
 final class MenuBarInteractionTests: XCTestCase {
     @MainActor
     func testCameraDeletionRequiresConfirmation() {
-        let app = XCUIApplication()
-        app.launch()
+        let app = launchApp()
         defer { app.terminate() }
 
         let statusItem = app.menuBars.statusItems["Meerkat"]
@@ -37,8 +36,7 @@ final class MenuBarInteractionTests: XCTestCase {
 
     @MainActor
     func testPanelOpensFromMenuBar() {
-        let app = XCUIApplication()
-        app.launch()
+        let app = launchApp()
         defer { app.terminate() }
 
         let statusItem = app.menuBars.statusItems["Meerkat"]
@@ -56,9 +54,35 @@ final class MenuBarInteractionTests: XCTestCase {
     }
 
     @MainActor
+    func testSmallPanelShowsCameraColumn() {
+        let app = launchApp(panelSize: "small")
+        defer { app.terminate() }
+
+        let statusItem = app.menuBars.statusItems["Meerkat"]
+        XCTAssertTrue(statusItem.waitForExistence(timeout: 5))
+        statusItem.click()
+
+        let settings = app.buttons["settings-button"]
+        XCTAssertTrue(settings.waitForExistence(timeout: 5))
+        settings.click()
+        resetCameras(in: app, count: 3)
+        app.buttons["settings-back"].click()
+
+        let tiles = app.buttons.matching(
+            NSPredicate(format: "identifier ENDSWITH '-tile'")
+        )
+        XCTAssertTrue(tiles.firstMatch.waitForExistence(timeout: 5))
+        XCTAssertEqual(tiles.count, 3)
+
+        let tileFrames = tiles.allElementsBoundByIndex.map(\.frame)
+        XCTAssertEqual(tileFrames[0].minX, tileFrames[1].minX, accuracy: 1)
+        XCTAssertEqual(tileFrames[1].minX, tileFrames[2].minX, accuracy: 1)
+        addScreenshot(named: "TW-373 Small Panel")
+    }
+
+    @MainActor
     func testCameraVisibilityControlsGrid() {
-        let app = XCUIApplication()
-        app.launch()
+        let app = launchApp()
         defer { app.terminate() }
 
         let statusItem = app.menuBars.statusItems["Meerkat"]
@@ -87,8 +111,7 @@ final class MenuBarInteractionTests: XCTestCase {
 
     @MainActor
     func testSettingsContents() {
-        let app = XCUIApplication()
-        app.launch()
+        let app = launchApp()
         defer { app.terminate() }
 
         let statusItem = app.menuBars.statusItems["Meerkat"]
@@ -101,6 +124,13 @@ final class MenuBarInteractionTests: XCTestCase {
         XCTAssertTrue(app.staticTexts["settings-title"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.checkBoxes["settings-start-at-login"].exists)
         XCTAssertTrue(app.checkBoxes["settings-background-streaming"].exists)
+        let windowSize = app.popUpButtons["settings-window-size"]
+        XCTAssertTrue(windowSize.exists)
+        windowSize.click()
+        for size in ["Small", "Medium", "Large"] {
+            XCTAssertTrue(app.menuItems[size].waitForExistence(timeout: 5))
+        }
+        app.menuItems["Medium"].click()
         XCTAssertTrue(app.buttons["settings-check-for-updates"].exists)
         XCTAssertTrue(app.staticTexts["settings-version"].exists)
         addScreenshot(named: "TW-418 Settings")
@@ -108,8 +138,7 @@ final class MenuBarInteractionTests: XCTestCase {
 
     @MainActor
     func testTileExpandsAndReturnsToGrid() {
-        let app = XCUIApplication()
-        app.launch()
+        let app = launchApp()
         defer { app.terminate() }
 
         let statusItem = app.menuBars.statusItems["Meerkat"]
@@ -141,8 +170,7 @@ final class MenuBarInteractionTests: XCTestCase {
 
     @MainActor
     func testFullWidthTileDoesNotExpand() {
-        let app = XCUIApplication()
-        app.launch()
+        let app = launchApp()
         defer { app.terminate() }
 
         let statusItem = app.menuBars.statusItems["Meerkat"]
@@ -164,6 +192,14 @@ final class MenuBarInteractionTests: XCTestCase {
         XCTAssertEqual(tiles.count, 2)
         XCTAssertTrue(settings.exists)
         addScreenshot(named: "TW-375 Full Width Guard")
+    }
+
+    @MainActor
+    private func launchApp(panelSize: String = "medium") -> XCUIApplication {
+        let app = XCUIApplication()
+        app.launchArguments += ["-menuBarPanelSize", panelSize]
+        app.launch()
+        return app
     }
 
     @MainActor
