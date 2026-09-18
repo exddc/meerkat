@@ -4,10 +4,25 @@ enum AppInfo {
     static let name = "Meerkat"
     static let menuBarIcon = "MenuBarIcon"
     static let cameraLabelVisibilityKey = "cameraLabelVisibility"
+    static let panelSizeKey = "menuBarPanelSize"
 
     static var version: String {
         Bundle.main.object(forInfoDictionaryKey: "CFBundleShortVersionString") as? String
             ?? "Unknown"
+    }
+}
+
+enum MenuBarPanelSize: String, CaseIterable {
+    case small
+    case medium
+    case large
+
+    var title: String {
+        switch self {
+        case .small: "Small"
+        case .medium: "Medium"
+        case .large: "Large"
+        }
     }
 }
 
