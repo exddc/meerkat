@@ -1,7 +1,7 @@
 [project]
 name = "camera-mock-server"
 version = "0.1.0"
-description = "Local HTTP camera simulator for Meerkat"
+description = "Local home-camera mocks for Meerkat"
 readme = "README.md"
 requires-python = ">=3.13"
 dependencies = [

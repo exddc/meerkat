@@ -1,11 +1,6 @@
 # Camera Mock Server
 
-This CLI runs one mock camera service for local Meerkat development. It provides small,
-continuous media fixtures and vendor-shaped protocol endpoints without camera hardware.
-
-## Run a Camera
-
-Install the locked dependencies and start a Reolink camera:
+Local stand-ins for home cameras. Each command runs one camera.
 
 ```sh
 cd camera-mock-server
@@ -13,44 +8,17 @@ uv sync
 uv run camera-mock-server reolink
 ```
 
-HTTP profiles listen on `http://127.0.0.1:8000`. The default username is `admin`, and the
-default password is `meerkat`. Ring and Ubiquiti use the default token `meerkat`. Use
-`--username`, `--password`, `--token`, or `--no-auth` to change authentication.
+The default username is `admin` and the default password is `meerkat`. Pass `--no-auth` to skip the check.
 
-Choose one of these profiles as the positional argument:
+| Profile | Address | Authentication |
+| --- | --- | --- |
+| `reolink` | `http://127.0.0.1:8000/flv` | `user` and `password` query parameters |
+| `tapo` | `rtsp://127.0.0.1:8554/stream1` and `/stream2` | Basic |
+| `eufy` | `rtsp://127.0.0.1:8554/live0` and `/live1` | Basic |
 
-| Profile | Identity endpoint | Media endpoints | Authentication |
-| --- | --- | --- | --- |
-| `reolink` | `/api.cgi` | `/flv`, `/cgi-bin/api.cgi?cmd=Snap` | Query parameters |
-| `axis` | `/axis-cgi/param.cgi` | JPEG and Motion JPEG | Digest or Basic |
-| `hikvision` | `/ISAPI/System/deviceInfo` | JPEG snapshot | Digest or Basic |
-| `dahua` | `/cgi-bin/magicBox.cgi` | JPEG and Motion JPEG | Digest or Basic |
-| `ring` | `/v1/devices` | JPEG snapshot download | Bearer token |
-| `ubiquiti` | `/v1/cameras` | JPEG snapshot and RTSPS catalog | `X-API-Key` |
-| `eufy` | RTSP `DESCRIBE` | H.264 over interleaved RTP | Basic |
+Reolink follows the vendor's [HTTP-FLV URL](https://support.reolink.com/articles/28256840140441-Introduction-to-FLV-Stream/). Tapo's third-party stream is [RTSP `/stream1` and `/stream2`](https://www.tp-link.com/us/support/faq/2680/). eufy cameras that enable NAS storage publish an [RTSP address](https://service.eufy.com/article-description/Device-NAS-RTSP-Configuration-Guide) such as `/live0`. Tapo and eufy here accept only TCP interleaved RTP. The mock listens on 8554 so it does not need a privileged port.
 
-The Reolink stream follows the vendor's [HTTP-FLV URL format](https://support.reolink.com/articles/28256840140441-Introduction-to-FLV-Stream/).
-The Axis routes follow the [VAPIX video streaming API](https://developer.axis.com/vapix/network-video/video-streaming/).
-Ring exposes cameras through its cloud [Partner API](https://developer.amazon.com/docs/ring/api-documentation.html),
-which uses OAuth bearer tokens and device media endpoints. UniFi Protect exposes a local
-[Protect API](https://developer.ui.com/protect) with API-key authentication and RTSPS stream
-catalogs. Compatible eufy models can generate an authenticated
-[RTSP address](https://service.eufy.com/article-description/Device-NAS-RTSP-Configuration-Guide),
-although support and event-only behavior vary by model and configuration.
-
-Start the eufy RTSP profile separately:
-
-```sh
-uv run camera-mock-server eufy
-```
-
-It listens on `rtsp://127.0.0.1:8554/live0`. The profiles cover the endpoints needed for
-detection and media tests, not complete camera firmware or cloud account linking.
-
-## Use HTTPS
-
-Meerkat accepts camera addresses over HTTPS. For an HTTP profile, create a temporary certificate,
-then expose the server on your local network:
+Meerkat opens Reolink as HTTPS on a private LAN address, and it rejects `127.0.0.1`. For that check:
 
 ```sh
 mkdir -p .certs
@@ -61,10 +29,11 @@ uv run camera-mock-server reolink --host 0.0.0.0 --port 8443 \
   --ssl-keyfile .certs/key.pem --ssl-certfile .certs/cert.pem
 ```
 
-Enter `https://<your-lan-ip>:8443` as the camera address in Meerkat. Keep this server on a
-trusted development network because its media and credentials are test fixtures.
+Enter `https://<your-lan-ip>:8443` as the camera address. Keep the server on a trusted network. The media and credentials are fixtures.
 
-## Check Changes
+Ring, Nest, Arlo, and Wyze are omitted. Their live video is a cloud or WebRTC session, not a local URL.
+
+## Check changes
 
 ```sh
 uv run ruff format --check .

@@ -132,16 +132,3 @@ async def flv_stream() -> AsyncGenerator[bytes]:
             previous = current
         last_timestamp = previous
         offset += tags[-1][0] + step
-
-
-async def mjpeg_stream(fps: int = 5) -> AsyncGenerator[bytes]:
-    frame = (
-        b"--meerkat\r\nContent-Type: image/jpeg\r\nContent-Length: "
-        + str(len(JPEG_FIXTURE)).encode()
-        + b"\r\n\r\n"
-        + JPEG_FIXTURE
-        + b"\r\n"
-    )
-    while True:
-        yield frame
-        await asyncio.sleep(1 / max(1, min(fps, 30)))

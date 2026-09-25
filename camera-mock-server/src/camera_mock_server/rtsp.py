@@ -10,6 +10,7 @@ from camera_mock_server.media import h264_media
 
 @dataclass(frozen=True)
 class RTSPConfiguration:
+    paths: tuple[str, ...]
     username: str
     password: str
     require_auth: bool
@@ -38,7 +39,15 @@ def _response(
     headers: dict[str, str] | None = None,
     body: bytes = b"",
 ) -> bytes:
-    reasons = {200: "OK", 400: "Bad Request", 401: "Unauthorized", 405: "Method Not Allowed"}
+    reasons = {
+        200: "OK",
+        400: "Bad Request",
+        401: "Unauthorized",
+        404: "Not Found",
+        405: "Method Not Allowed",
+        455: "Method Not Valid in This State",
+        461: "Unsupported Transport",
+    }
     fields = {"CSeq": cseq, "Server": "Meerkat Camera Mock", **(headers or {})}
     if body:
         fields["Content-Length"] = str(len(body))
@@ -55,7 +64,7 @@ def _sdp(host: str) -> bytes:
     lines = [
         "v=0",
         f"o=- 0 0 IN IP4 {host}",
-        "s=eufy Camera",
+        "s=Camera",
         "t=0 0",
         "a=control:*",
         "m=video 0 RTP/AVP 96",
@@ -84,7 +93,32 @@ def _nal_packets(nal: bytes, maximum_size: int = 1200) -> tuple[bytes, ...]:
     )
 
 
-async def _stream_rtp(writer: asyncio.StreamWriter) -> None:
+def _request_path(uri: str) -> str:
+    path = uri.split("?", 1)[0]
+    if "://" in path:
+        path = path.split("://", 1)[1]
+        path = "/" + path.split("/", 1)[1] if "/" in path else "/"
+    return path.rstrip("/") or "/"
+
+
+def _known_stream(path: str, paths: tuple[str, ...]) -> bool:
+    return any(path == allowed or path.startswith(f"{allowed}/") for allowed in paths)
+
+
+def _interleaved_channel(transport: str) -> int | None:
+    fields = [field.strip() for field in transport.split(";")]
+    if not fields or fields[0].upper() != "RTP/AVP/TCP":
+        return None
+    for field in fields:
+        name, separator, value = field.partition("=")
+        if separator and name.lower() == "interleaved":
+            start, _, _ = value.partition("-")
+            if start.isdigit() and 0 <= int(start) <= 255:
+                return int(start)
+    return None
+
+
+async def _stream_rtp(writer: asyncio.StreamWriter, channel: int) -> None:
     sps, pps, frames = h264_media()
     timestamps = [timestamp for timestamp, _ in frames]
     step = max(40, timestamps[-1] - timestamps[-2] if len(timestamps) > 1 else 200)
@@ -112,7 +146,7 @@ async def _stream_rtp(writer: asyncio.StreamWriter) -> None:
                     )
                     sequence = (sequence + 1) & 0xFFFF
                     rtp = header + payload
-                    writer.write(b"$\x00" + len(rtp).to_bytes(2, "big") + rtp)
+                    writer.write(bytes((0x24, channel)) + len(rtp).to_bytes(2, "big") + rtp)
                 await writer.drain()
                 previous = timestamp
             await asyncio.sleep(step / 1000)
@@ -128,6 +162,7 @@ async def _handle_client(
     host: str,
 ) -> None:
     stream_task: asyncio.Task[None] | None = None
+    setup_channel: int | None = None
     try:
         while True:
             try:
@@ -164,6 +199,8 @@ async def _handle_client(
                     cseq,
                     headers={"Public": "OPTIONS, DESCRIBE, SETUP, PLAY, GET_PARAMETER, TEARDOWN"},
                 )
+            elif not _known_stream(_request_path(uri), configuration.paths):
+                response = _response(404, cseq)
             elif method == "DESCRIBE":
                 response = _response(
                     200,
@@ -175,21 +212,28 @@ async def _handle_client(
                     body=_sdp(host),
                 )
             elif method == "SETUP":
-                transport = headers.get("transport", "RTP/AVP/TCP;unicast;interleaved=0-1")
-                response = _response(
-                    200,
-                    cseq,
-                    headers={"Transport": transport, "Session": "meerkat"},
-                )
+                channel = _interleaved_channel(headers.get("transport", ""))
+                if channel is None:
+                    response = _response(461, cseq)
+                else:
+                    setup_channel = channel
+                    response = _response(
+                        200,
+                        cseq,
+                        headers={"Transport": headers["transport"], "Session": "meerkat"},
+                    )
             elif method == "PLAY":
-                response = _response(
-                    200,
-                    cseq,
-                    headers={
-                        "Session": "meerkat",
-                        "RTP-Info": f"url={uri}/trackID=0;seq=0;rtptime=0",
-                    },
-                )
+                if setup_channel is None:
+                    response = _response(455, cseq)
+                else:
+                    response = _response(
+                        200,
+                        cseq,
+                        headers={
+                            "Session": "meerkat",
+                            "RTP-Info": f"url={uri}/trackID=0;seq=0;rtptime=0",
+                        },
+                    )
             elif method == "GET_PARAMETER" or method == "TEARDOWN":
                 response = _response(200, cseq, headers={"Session": "meerkat"})
             else:
@@ -197,8 +241,13 @@ async def _handle_client(
 
             writer.write(response)
             await writer.drain()
-            if method == "PLAY" and response.startswith(b"RTSP/1.0 200") and stream_task is None:
-                stream_task = asyncio.create_task(_stream_rtp(writer))
+            if (
+                method == "PLAY"
+                and response.startswith(b"RTSP/1.0 200")
+                and stream_task is None
+                and setup_channel is not None
+            ):
+                stream_task = asyncio.create_task(_stream_rtp(writer, setup_channel))
             if method == "TEARDOWN":
                 break
     finally:
@@ -214,12 +263,13 @@ async def _handle_client(
 async def create_rtsp_server(
     host: str,
     port: int,
+    paths: tuple[str, ...],
     *,
     username: str = "admin",
     password: str = "meerkat",
     require_auth: bool = True,
 ) -> asyncio.Server:
-    configuration = RTSPConfiguration(username, password, require_auth)
+    configuration = RTSPConfiguration(paths, username, password, require_auth)
     return await asyncio.start_server(
         lambda reader, writer: _handle_client(reader, writer, configuration, host),
         host,
@@ -230,6 +280,7 @@ async def create_rtsp_server(
 async def run_rtsp_server(
     host: str,
     port: int,
+    paths: tuple[str, ...],
     *,
     username: str = "admin",
     password: str = "meerkat",
@@ -238,10 +289,12 @@ async def run_rtsp_server(
     server = await create_rtsp_server(
         host,
         port,
+        paths,
         username=username,
         password=password,
         require_auth=require_auth,
     )
-    print(f"RTSP camera running on rtsp://{host}:{port}/live0")
+    addresses = ", ".join(f"rtsp://{host}:{port}{path}" for path in paths)
+    print(f"RTSP camera running on {addresses}")
     async with server:
         await server.serve_forever()
