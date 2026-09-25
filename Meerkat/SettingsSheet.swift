@@ -10,6 +10,7 @@ struct SettingsSheet: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Camera.sortIndex) private var cameras: [Camera]
     @AppStorage(AppInfo.cameraLabelVisibilityKey) private var cameraLabelVisibility = CameraLabelVisibility.always
+    @AppStorage(AppInfo.panelSizeKey) private var panelSize = MenuBarPanelSize.medium
     @AppStorage(BackgroundStreaming.enabledKey) private var backgroundStreamingEnabled = BackgroundStreaming.defaultEnabled
     @StateObject private var launchAtLoginController = LaunchAtLoginController()
     @State private var cameraPendingRemoval: Camera?
@@ -77,17 +78,34 @@ struct SettingsSheet: View {
                         title: "Display"
                     ) {
                         SettingsSurface {
-                            LabeledContent("Show camera labels") {
-                                Spacer()
-                                Picker("Show camera labels", selection: $cameraLabelVisibility) {
-                                    ForEach(CameraLabelVisibility.allCases, id: \.self) { option in
-                                        Text(option.title).tag(option)
+                            VStack(spacing: 10) {
+                                LabeledContent("Window size") {
+                                    Spacer()
+                                    Picker("Window size", selection: $panelSize) {
+                                        ForEach(MenuBarPanelSize.allCases, id: \.self) { size in
+                                            Text(size.title).tag(size)
+                                        }
                                     }
+                                    .pickerStyle(.menu)
+                                    .labelsHidden()
+                                    .fixedSize()
+                                    .accessibilityIdentifier("settings-window-size")
                                 }
-                                .pickerStyle(.menu)
-                                .labelsHidden()
-                                .fixedSize()
-                                .accessibilityIdentifier("settings-show-camera-labels")
+
+                                Divider()
+
+                                LabeledContent("Show camera labels") {
+                                    Spacer()
+                                    Picker("Show camera labels", selection: $cameraLabelVisibility) {
+                                        ForEach(CameraLabelVisibility.allCases, id: \.self) { option in
+                                            Text(option.title).tag(option)
+                                        }
+                                    }
+                                    .pickerStyle(.menu)
+                                    .labelsHidden()
+                                    .fixedSize()
+                                    .accessibilityIdentifier("settings-show-camera-labels")
+                                }
                             }
                         }
                     }

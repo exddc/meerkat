@@ -6,6 +6,7 @@ struct MenuBarPanel: View {
     @Environment(\.accessibilityReduceMotion) private var reduceMotion
     @Query(sort: \Camera.sortIndex) private var cameras: [Camera]
     @AppStorage(BackgroundStreaming.enabledKey) private var backgroundStreamingEnabled = BackgroundStreaming.defaultEnabled
+    @AppStorage(AppInfo.panelSizeKey) private var panelSize = MenuBarPanelSize.medium
     @State private var expandedCameraID: UUID?
     @State private var isVisible = false
     @State private var maximumContentHeight: CGFloat?
@@ -14,13 +15,23 @@ struct MenuBarPanel: View {
     @ObservedObject private var updater: UpdaterController
 
     private let playbackEnabled: Bool
-    private let panelWidth = CameraGridLayout.panelWidth
     private var visibleCameras: [Camera] {
         cameras.filter(\.isVisible)
     }
 
+    private var cameraPanelWidth: CGFloat {
+        CameraGridLayout.panelWidth(for: panelSize)
+    }
+
+    private var contentWidth: CGFloat {
+        showsSettings ? CameraGridLayout.panelWidth : cameraPanelWidth
+    }
+
     private var gridPanelHeight: CGFloat {
-        CameraGridLayout.panelHeight(for: visibleCameras.count)
+        CameraGridLayout.panelHeight(
+            for: visibleCameras.count,
+            panelSize: panelSize
+        )
     }
 
     private var gridContentHeight: CGFloat {
@@ -58,21 +69,21 @@ struct MenuBarPanel: View {
     var body: some View {
         HStack(alignment: .top, spacing: 0) {
             cameraGrid
-                .frame(width: panelWidth, height: gridContentHeight)
+                .frame(width: cameraPanelWidth, height: gridContentHeight)
 
             SettingsSheet(
                 onBack: { setShowsSettings(false) },
                 canCheckForUpdates: updater.canCheckForUpdates,
                 onCheckForUpdates: updater.checkForUpdates
             )
-                .frame(width: panelWidth, height: settingsContentHeight)
+                .frame(width: CameraGridLayout.panelWidth, height: settingsContentHeight)
         }
-        .offset(x: showsSettings ? -panelWidth : 0)
-        .frame(width: panelWidth, height: contentHeight, alignment: .topLeading)
+        .offset(x: showsSettings ? -cameraPanelWidth : 0)
+        .frame(width: contentWidth, height: contentHeight, alignment: .topLeading)
         .clipped()
         .background {
             PanelWindowObserver(
-                contentSize: CGSize(width: panelWidth, height: contentHeight),
+                contentSize: CGSize(width: contentWidth, height: contentHeight),
                 onMaximumContentHeightChange: { maximumHeight in
                     guard maximumContentHeight != maximumHeight else { return }
                     maximumContentHeight = maximumHeight
@@ -99,6 +110,7 @@ struct MenuBarPanel: View {
             ScrollView {
                 CameraTileLayout(
                     expandedCameraID: expandedCameraID,
+                    panelSize: panelSize,
                     viewportSize: proxy.size
                 ) {
                     ForEach(visibleCameras) { camera in
@@ -183,13 +195,19 @@ struct MenuBarPanel: View {
         .buttonStyle(.plain)
         .allowsHitTesting(
             expandedCameraID != nil
-                || CameraGridLayout.canExpandTiles(for: visibleCameras.count)
+                || CameraGridLayout.canExpandTiles(
+                    for: visibleCameras.count,
+                    panelSize: panelSize
+                )
         )
         .accessibilityLabel(camera.name)
         .accessibilityHint(
             expandedCameraID == camera.cameraID
                 ? "Show all cameras"
-                : CameraGridLayout.canExpandTiles(for: visibleCameras.count)
+                : CameraGridLayout.canExpandTiles(
+                    for: visibleCameras.count,
+                    panelSize: panelSize
+                )
                     ? "Expand camera"
                     : ""
         )
@@ -211,7 +229,10 @@ struct MenuBarPanel: View {
 
     private func setExpandedCamera(_ camera: Camera) {
         guard expandedCameraID == camera.cameraID
-                || CameraGridLayout.canExpandTiles(for: visibleCameras.count) else {
+                || CameraGridLayout.canExpandTiles(
+                    for: visibleCameras.count,
+                    panelSize: panelSize
+                ) else {
             return
         }
         let animation: Animation? = reduceMotion ? nil : .smooth(duration: 0.3)
@@ -348,9 +369,25 @@ private struct PanelWindowObserver: NSViewRepresentable {
 
         private func resizeWindow() {
             guard let window, window.contentView?.bounds.size != contentSize else { return }
-            let topLeft = NSPoint(x: window.frame.minX, y: window.frame.maxY)
+            let previousFrame = window.frame
+            let anchorsRight = window.screen.map {
+                previousFrame.midX >= $0.visibleFrame.midX
+            } ?? true
             window.setContentSize(contentSize)
-            window.setFrameTopLeftPoint(topLeft)
+            let resizedFrame = window.frame
+            var topLeftX = anchorsRight
+                ? previousFrame.maxX - resizedFrame.width
+                : previousFrame.minX
+
+            if let visibleFrame = window.screen?.visibleFrame {
+                topLeftX = min(
+                    max(topLeftX, visibleFrame.minX),
+                    visibleFrame.maxX - resizedFrame.width
+                )
+            }
+            window.setFrameTopLeftPoint(
+                NSPoint(x: topLeftX, y: previousFrame.maxY)
+            )
         }
 
         private func publishMaximumContentHeight() {
