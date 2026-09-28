@@ -8,10 +8,10 @@ def camera_auth(username: str, password: str, require_auth: bool) -> Callable[[R
     def authenticate(request: Request) -> None:
         if not require_auth:
             return
-        supplied_user = request.query_params.get("user", "")
-        supplied_password = request.query_params.get("password", "")
-        if secrets.compare_digest(supplied_user, username) and secrets.compare_digest(
-            supplied_password, password
+        supplied_user = request.query_params.get("user", "").encode()
+        supplied_password = request.query_params.get("password", "").encode()
+        if secrets.compare_digest(supplied_user, username.encode()) and secrets.compare_digest(
+            supplied_password, password.encode()
         ):
             return
         raise HTTPException(

@@ -1,5 +1,8 @@
 from enum import StrEnum
 
+DEFAULT_USERNAME = "admin"
+DEFAULT_PASSWORD = "meerkat"
+
 
 class Vendor(StrEnum):
     REOLINK = "reolink"

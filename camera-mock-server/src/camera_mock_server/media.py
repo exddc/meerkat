@@ -1,6 +1,8 @@
 import asyncio
 import base64
 from collections.abc import AsyncGenerator
+from dataclasses import dataclass
+from functools import cache
 
 FLV_FIXTURE = base64.b64decode(
     "RkxWAQEAAAAJAAAAABIAALcAAAAAAAAAAgAKb25NZXRhRGF0YQgAAAAIAAhkdXJhdGlvbgA/8AAAAAAAAAAFd2lk"
@@ -45,12 +47,22 @@ JPEG_FIXTURE = base64.b64decode(
     "AAAAAAAAAAAAAAAAAAAP/aAAgBAQABPxB//9k="
 )
 
+FLV_VIDEO = 9
+AVC_SEQUENCE_HEADER = 0
+AVC_NALU = 1
 
-def h264_media() -> tuple[bytes, bytes, tuple[tuple[int, tuple[bytes, ...]], ...]]:
-    sps = b""
-    pps = b""
-    length_size = 4
-    frames: list[tuple[int, tuple[bytes, ...]]] = []
+
+@dataclass(frozen=True)
+class FLVTag:
+    kind: int
+    timestamp: int
+    payload: bytes
+    raw: bytes
+
+
+@cache
+def _flv_tags() -> tuple[FLVTag, ...]:
+    tags: list[FLVTag] = []
     offset = 13
     while offset + 15 <= len(FLV_FIXTURE):
         size = int.from_bytes(FLV_FIXTURE[offset + 1 : offset + 4])
@@ -60,55 +72,62 @@ def h264_media() -> tuple[bytes, bytes, tuple[tuple[int, tuple[bytes, ...]], ...
         timestamp = int.from_bytes(FLV_FIXTURE[offset + 4 : offset + 7])
         timestamp |= FLV_FIXTURE[offset + 7] << 24
         payload = FLV_FIXTURE[offset + 11 : offset + 11 + size]
-        if FLV_FIXTURE[offset] == 9 and len(payload) > 5:
-            if payload[1] == 0:
-                configuration = payload[5:]
-                length_size = (configuration[4] & 3) + 1
-                position = 6
-                sps_length = int.from_bytes(configuration[position : position + 2])
-                position += 2
-                sps = configuration[position : position + sps_length]
-                position += sps_length + 1
-                pps_length = int.from_bytes(configuration[position : position + 2])
-                position += 2
-                pps = configuration[position : position + pps_length]
-            elif payload[1] == 1:
-                data = payload[5:]
-                nals: list[bytes] = []
-                position = 0
-                while position + length_size <= len(data):
-                    nal_length = int.from_bytes(data[position : position + length_size])
-                    position += length_size
-                    nal = data[position : position + nal_length]
-                    if len(nal) != nal_length:
-                        break
-                    nals.append(nal)
-                    position += nal_length
-                if nals:
-                    frames.append((timestamp, tuple(nals)))
+        tags.append(FLVTag(FLV_FIXTURE[offset], timestamp, payload, FLV_FIXTURE[offset:end]))
         offset = end
+    return tuple(tags)
+
+
+def _video_tags(packet_type: int) -> tuple[FLVTag, ...]:
+    return tuple(
+        tag
+        for tag in _flv_tags()
+        if tag.kind == FLV_VIDEO and len(tag.payload) > 5 and tag.payload[1] == packet_type
+    )
+
+
+@cache
+def frame_step() -> int:
+    timestamps = [tag.timestamp for tag in _video_tags(AVC_NALU)]
+    return max(40, timestamps[-1] - timestamps[-2] if len(timestamps) > 1 else 200)
+
+
+def _nal_units(data: bytes, length_size: int) -> tuple[bytes, ...]:
+    nals: list[bytes] = []
+    position = 0
+    while position + length_size <= len(data):
+        nal_length = int.from_bytes(data[position : position + length_size])
+        position += length_size
+        nal = data[position : position + nal_length]
+        if len(nal) != nal_length:
+            break
+        nals.append(nal)
+        position += nal_length
+    return tuple(nals)
+
+
+@cache
+def h264_media() -> tuple[bytes, bytes, tuple[tuple[int, tuple[bytes, ...]], ...]]:
+    headers = _video_tags(AVC_SEQUENCE_HEADER)
+    if not headers:
+        raise ValueError("The bundled FLV fixture does not contain H.264 media")
+    configuration = headers[0].payload[5:]
+    length_size = (configuration[4] & 3) + 1
+    position = 6
+    sps_length = int.from_bytes(configuration[position : position + 2])
+    position += 2
+    sps = configuration[position : position + sps_length]
+    position += sps_length + 1
+    pps_length = int.from_bytes(configuration[position : position + 2])
+    position += 2
+    pps = configuration[position : position + pps_length]
+    frames = tuple(
+        (tag.timestamp, nals)
+        for tag in _video_tags(AVC_NALU)
+        if (nals := _nal_units(tag.payload[5:], length_size))
+    )
     if not sps or not pps or not frames:
         raise ValueError("The bundled FLV fixture does not contain H.264 media")
-    return sps, pps, tuple(frames)
-
-
-def _video_tags() -> tuple[list[tuple[int, bytes]], int]:
-    tags: list[tuple[int, bytes]] = []
-    offset = 13
-    while offset + 15 <= len(FLV_FIXTURE):
-        size = int.from_bytes(FLV_FIXTURE[offset + 1 : offset + 4])
-        end = offset + 11 + size + 4
-        if end > len(FLV_FIXTURE):
-            break
-        timestamp = int.from_bytes(FLV_FIXTURE[offset + 4 : offset + 7])
-        timestamp |= FLV_FIXTURE[offset + 7] << 24
-        payload = FLV_FIXTURE[offset + 11 : offset + 11 + size]
-        if FLV_FIXTURE[offset] == 9 and len(payload) > 1 and payload[1] == 1:
-            tags.append((timestamp, FLV_FIXTURE[offset:end]))
-        offset = end
-    timestamps = [timestamp for timestamp, _ in tags]
-    step = max(40, (timestamps[-1] - timestamps[-2]) if len(timestamps) > 1 else 200)
-    return tags, step
+    return sps, pps, frames
 
 
 def _timestamped(tag: bytes, timestamp: int) -> bytes:
@@ -120,15 +139,16 @@ def _timestamped(tag: bytes, timestamp: int) -> bytes:
 
 async def flv_stream() -> AsyncGenerator[bytes]:
     yield FLV_FIXTURE
-    tags, step = _video_tags()
-    last_timestamp = tags[-1][0]
+    tags = _video_tags(AVC_NALU)
+    step = frame_step()
+    last_timestamp = tags[-1].timestamp
     offset = last_timestamp + step
     while True:
         previous = last_timestamp
-        for timestamp, tag in tags:
-            current = offset + timestamp
+        for tag in tags:
+            current = offset + tag.timestamp
             await asyncio.sleep(max(step, current - previous) / 1000)
-            yield _timestamped(tag, current)
+            yield _timestamped(tag.raw, current)
             previous = current
         last_timestamp = previous
-        offset += tags[-1][0] + step
+        offset += tags[-1].timestamp + step

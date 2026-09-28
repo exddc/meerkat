@@ -5,15 +5,16 @@ import struct
 from contextlib import suppress
 from dataclasses import dataclass
 
-from camera_mock_server.media import h264_media
+from camera_mock_server.config import DEFAULT_PASSWORD, DEFAULT_USERNAME
+from camera_mock_server.media import frame_step, h264_media
 
 
 @dataclass(frozen=True)
 class RTSPConfiguration:
     paths: tuple[str, ...]
-    username: str
-    password: str
-    require_auth: bool
+    username: str = DEFAULT_USERNAME
+    password: str = DEFAULT_PASSWORD
+    require_auth: bool = True
 
 
 def _authorized(headers: dict[str, str], configuration: RTSPConfiguration) -> bool:
@@ -23,12 +24,12 @@ def _authorized(headers: dict[str, str], configuration: RTSPConfiguration) -> bo
     if scheme.lower() != "basic":
         return False
     try:
-        supplied = base64.b64decode(value, validate=True).decode()
-    except (ValueError, UnicodeDecodeError):
+        supplied = base64.b64decode(value, validate=True)
+    except ValueError:
         return False
     return secrets.compare_digest(
         supplied,
-        f"{configuration.username}:{configuration.password}",
+        f"{configuration.username}:{configuration.password}".encode(),
     )
 
 
@@ -61,6 +62,7 @@ def _response(
 def _sdp(host: str) -> bytes:
     sps, pps, _ = h264_media()
     sprop = f"{base64.b64encode(sps).decode()},{base64.b64encode(pps).decode()}"
+    profile_level_id = sps[1:4].hex().upper()
     lines = [
         "v=0",
         f"o=- 0 0 IN IP4 {host}",
@@ -69,7 +71,8 @@ def _sdp(host: str) -> bytes:
         "a=control:*",
         "m=video 0 RTP/AVP 96",
         "a=rtpmap:96 H264/90000",
-        f"a=fmtp:96 packetization-mode=1;profile-level-id=42C016;sprop-parameter-sets={sprop}",
+        f"a=fmtp:96 packetization-mode=1;profile-level-id={profile_level_id};"
+        f"sprop-parameter-sets={sprop}",
         "a=control:trackID=0",
     ]
     return ("\r\n".join(lines) + "\r\n").encode()
@@ -78,19 +81,16 @@ def _sdp(host: str) -> bytes:
 def _nal_packets(nal: bytes, maximum_size: int = 1200) -> tuple[bytes, ...]:
     if len(nal) <= maximum_size:
         return (nal,)
-    indicator = bytes([(nal[0] & 0xE0) | 28])
+    indicator = (nal[0] & 0xE0) | 28
     nal_type = nal[0] & 0x1F
-    chunks = [
-        nal[index : index + maximum_size - 2] for index in range(1, len(nal), maximum_size - 2)
-    ]
-    return tuple(
-        indicator
-        + bytes(
-            [nal_type | (0x80 if index == 0 else 0) | (0x40 if index == len(chunks) - 1 else 0)]
-        )
-        + chunk
-        for index, chunk in enumerate(chunks)
-    )
+    chunk_size = maximum_size - 2
+    chunks = [nal[index : index + chunk_size] for index in range(1, len(nal), chunk_size)]
+    packets: list[bytes] = []
+    for index, chunk in enumerate(chunks):
+        start = 0x80 if index == 0 else 0
+        end = 0x40 if index == len(chunks) - 1 else 0
+        packets.append(bytes((indicator, nal_type | start | end)) + chunk)
+    return tuple(packets)
 
 
 def _request_path(uri: str) -> str:
@@ -106,22 +106,22 @@ def _known_stream(path: str, paths: tuple[str, ...]) -> bool:
 
 
 def _interleaved_channel(transport: str) -> int | None:
-    fields = [field.strip() for field in transport.split(";")]
-    if not fields or fields[0].upper() != "RTP/AVP/TCP":
-        return None
-    for field in fields:
-        name, separator, value = field.partition("=")
-        if separator and name.lower() == "interleaved":
-            start, _, _ = value.partition("-")
-            if start.isdigit() and 0 <= int(start) <= 255:
-                return int(start)
+    for specification in transport.split(","):
+        fields = [field.strip() for field in specification.split(";")]
+        if fields[0].upper() != "RTP/AVP/TCP":
+            continue
+        for field in fields:
+            name, separator, value = field.partition("=")
+            if separator and name.lower() == "interleaved":
+                start, _, _ = value.partition("-")
+                if start.isdigit() and int(start) <= 254:
+                    return int(start)
     return None
 
 
 async def _stream_rtp(writer: asyncio.StreamWriter, channel: int) -> None:
     sps, pps, frames = h264_media()
-    timestamps = [timestamp for timestamp, _ in frames]
-    step = max(40, timestamps[-1] - timestamps[-2] if len(timestamps) > 1 else 200)
+    step = frame_step()
     sequence = 0
     timestamp_offset = 0
     ssrc = 0x4D454552
@@ -150,8 +150,8 @@ async def _stream_rtp(writer: asyncio.StreamWriter, channel: int) -> None:
                 await writer.drain()
                 previous = timestamp
             await asyncio.sleep(step / 1000)
-            timestamp_offset += timestamps[-1] + step
-    except (BrokenPipeError, ConnectionResetError):
+            timestamp_offset += frames[-1][0] + step
+    except ConnectionError:
         return
 
 
@@ -183,9 +183,13 @@ async def _handle_client(
                 for key, value in [line.split(":", 1)]
             }
             cseq = headers.get("cseq", "0")
-            content_length = int(headers.get("content-length", "0"))
-            if content_length:
-                await reader.readexactly(content_length)
+            content_length = headers.get("content-length", "0")
+            if not content_length.isdigit():
+                writer.write(_response(400, cseq))
+                await writer.drain()
+                break
+            if int(content_length):
+                await reader.readexactly(int(content_length))
 
             if method != "OPTIONS" and not _authorized(headers, configuration):
                 response = _response(
@@ -220,7 +224,10 @@ async def _handle_client(
                     response = _response(
                         200,
                         cseq,
-                        headers={"Transport": headers["transport"], "Session": "meerkat"},
+                        headers={
+                            "Transport": f"RTP/AVP/TCP;unicast;interleaved={channel}-{channel + 1}",
+                            "Session": "meerkat",
+                        },
                     )
             elif method == "PLAY":
                 if setup_channel is None:
@@ -263,13 +270,8 @@ async def _handle_client(
 async def create_rtsp_server(
     host: str,
     port: int,
-    paths: tuple[str, ...],
-    *,
-    username: str = "admin",
-    password: str = "meerkat",
-    require_auth: bool = True,
+    configuration: RTSPConfiguration,
 ) -> asyncio.Server:
-    configuration = RTSPConfiguration(paths, username, password, require_auth)
     return await asyncio.start_server(
         lambda reader, writer: _handle_client(reader, writer, configuration, host),
         host,
@@ -277,24 +279,9 @@ async def create_rtsp_server(
     )
 
 
-async def run_rtsp_server(
-    host: str,
-    port: int,
-    paths: tuple[str, ...],
-    *,
-    username: str = "admin",
-    password: str = "meerkat",
-    require_auth: bool = True,
-) -> None:
-    server = await create_rtsp_server(
-        host,
-        port,
-        paths,
-        username=username,
-        password=password,
-        require_auth=require_auth,
-    )
-    addresses = ", ".join(f"rtsp://{host}:{port}{path}" for path in paths)
+async def run_rtsp_server(host: str, port: int, configuration: RTSPConfiguration) -> None:
+    server = await create_rtsp_server(host, port, configuration)
+    addresses = ", ".join(f"rtsp://{host}:{port}{path}" for path in configuration.paths)
     print(f"RTSP camera running on {addresses}")
     async with server:
         await server.serve_forever()
