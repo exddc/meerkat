@@ -1,5 +1,7 @@
+import AVFoundation
 import Combine
 import Foundation
+import SwiftData
 
 struct CameraInput: Equatable {
     var address: String
@@ -37,11 +39,12 @@ struct CameraInput: Equatable {
 
     var streamURL: URL? {
         guard var components = Self.components(address) else { return nil }
-        if components.path.isEmpty || components.path == "/" {
+        let isRTSP = components.scheme == "rtsp"
+        if !isRTSP, components.path.isEmpty || components.path == "/" {
             components.path = "/flv"
         }
         var items = (components.queryItems ?? []).filter { $0.name != "user" && $0.name != "password" }
-        if components.path == "/flv" {
+        if !isRTSP, components.path == "/flv" {
             for (name, value) in [("port", "1935"), ("app", "bcs"), ("stream", "channel0_sub.bcs")] {
                 if !items.contains(where: { $0.name == name }) {
                     items.append(URLQueryItem(name: name, value: value))
@@ -49,13 +52,20 @@ struct CameraInput: Equatable {
             }
         }
         if requiresAuthentication {
-            items.append(URLQueryItem(name: "user", value: username))
-            items.append(URLQueryItem(name: "password", value: password))
+            if isRTSP {
+                components.user = username
+                components.password = password
+            } else {
+                items.append(URLQueryItem(name: "user", value: username))
+                items.append(URLQueryItem(name: "password", value: password))
+            }
         }
         components.queryItems = items.isEmpty ? nil : items
         components.percentEncodedQuery = components.percentEncodedQuery?.replacingOccurrences(of: "+", with: "%2B")
-        components.user = nil
-        components.password = nil
+        if !isRTSP {
+            components.user = nil
+            components.password = nil
+        }
         components.fragment = nil
         return components.url
     }
@@ -63,6 +73,54 @@ struct CameraInput: Equatable {
     var completeStreamURL: URL? {
         guard !requiresAuthentication || (!username.isEmpty && !password.isEmpty) else { return nil }
         return streamURL
+    }
+
+    var completeStreamURLs: [URL] {
+        guard !requiresAuthentication || (!username.isEmpty && !password.isEmpty),
+              let streamURL else { return [] }
+        guard usesEndpointDiscovery,
+              let components = Self.components(address) else { return [streamURL] }
+        let ports: [Int?] = components.port.map { [$0] } ?? [nil, 8554, 8555]
+        let rtspURLs = ports.flatMap { port in
+            ["/stream1", "/stream2", "/live0", "/live1"].compactMap { path in
+                rtspURL(components: components, port: port, path: path)
+            }
+        }
+        return [streamURL] + rtspURLs
+    }
+
+    var completeStreamURLGroups: [[URL]] {
+        let urls = completeStreamURLs
+        guard usesEndpointDiscovery else { return urls.isEmpty ? [] : [urls] }
+        return [
+            urls.filter { $0.path == "/flv" || $0.path == "/stream1" },
+            urls.filter { $0.path == "/live0" },
+            urls.filter { $0.path == "/stream2" },
+            urls.filter { $0.path == "/live1" },
+        ].filter { !$0.isEmpty }
+    }
+
+    private var usesEndpointDiscovery: Bool {
+        let address = address.trimmingCharacters(in: .whitespacesAndNewlines)
+        guard !address.contains("://"), let components = Self.components(address) else { return false }
+        return components.path.isEmpty || components.path == "/"
+    }
+
+    private func rtspURL(components: URLComponents, port: Int?, path: String) -> URL? {
+        var components = components
+        components.scheme = "rtsp"
+        components.port = port
+        components.path = path
+        components.query = nil
+        components.fragment = nil
+        if requiresAuthentication {
+            components.user = username
+            components.password = password
+        } else {
+            components.user = nil
+            components.password = nil
+        }
+        return components.url
     }
 
     private static func containsCredentials(in input: String) -> Bool {
@@ -91,10 +149,10 @@ struct CameraInput: Equatable {
         guard !input.isEmpty, !input.contains(where: { $0.isWhitespace }) else { return nil }
         let address = input.contains("://") ? input : "https://\(input)"
         guard var components = URLComponents(string: address),
-              components.scheme?.lowercased() == "https",
+              let scheme = components.scheme?.lowercased(), ["https", "rtsp"].contains(scheme),
               let host = components.host, !host.isEmpty,
               components.port.map({ (1...65535).contains($0) }) ?? true else { return nil }
-        components.scheme = "https"
+        components.scheme = scheme
         return components
     }
 }
@@ -117,6 +175,7 @@ final class CameraConfigurationEditor: ObservableObject {
     private let endpointCheck: EndpointCheck
     private var updateRevision = 0
     private var updateTask: Task<Void, Never>?
+    private var resolvedURL: URL?
 
     init(
         camera: Camera,
@@ -142,17 +201,19 @@ final class CameraConfigurationEditor: ObservableObject {
     func flush() {
         updateTask?.cancel()
         updateRevision &+= 1
-        guard let url = input.completeStreamURL else { return }
+        guard let url = resolvedURL ?? input.completeStreamURL else { return }
         persist(input, url: url)
     }
 
     private func scheduleUpdate() {
         updateTask?.cancel()
         updateRevision &+= 1
+        resolvedURL = nil
         let revision = updateRevision
         let input = input
         let debounceDuration = debounceDuration
         let endpointCheck = endpointCheck
+        let usedEndpoints = usedEndpointIdentities()
         endpointError = nil
 
         guard !input.address.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else { return }
@@ -165,16 +226,24 @@ final class CameraConfigurationEditor: ObservableObject {
                     self?.setEndpointError("Enter a valid camera address.", for: revision)
                     return
                 }
-                guard input.completeStreamURL != nil else {
+                let candidateGroups = input.completeStreamURLGroups.compactMap { group in
+                    let available = group.filter {
+                        !usedEndpoints.contains(Self.endpointIdentity(for: $0))
+                    }
+                    return available.isEmpty ? nil : available
+                }
+                guard !candidateGroups.isEmpty else {
                     self?.setEndpointError("Enter the camera username and password.", for: revision)
                     return
                 }
                 guard self?.updateRevision == revision else { return }
                 guard self?.persist(input, url: url) == true else { return }
 
-                try await endpointCheck(url)
+                let resolvedURL = try await Self.resolve(candidateGroups, using: endpointCheck)
                 try Task.checkCancellation()
                 guard self?.updateRevision == revision else { return }
+                guard self?.persist(input, url: resolvedURL) == true else { return }
+                self?.resolvedURL = resolvedURL
                 self?.endpointError = nil
             } catch is CancellationError {
                 return
@@ -203,6 +272,86 @@ final class CameraConfigurationEditor: ObservableObject {
         endpointError = error
     }
 
+    private func usedEndpointIdentities() -> Set<String> {
+        guard let context = camera.modelContext,
+              let cameras = try? context.fetch(FetchDescriptor<Camera>()) else { return [] }
+        return Set(cameras.compactMap { candidate in
+            guard candidate.cameraID != camera.cameraID,
+                  let url = candidate.playableStreamURL else { return nil }
+            return Self.endpointIdentity(for: url)
+        })
+    }
+
+    nonisolated private static func endpointIdentity(for url: URL) -> String {
+        guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false) else {
+            return url.absoluteString
+        }
+        let scheme = components.scheme?.lowercased() ?? ""
+        let host = components.host?.lowercased() ?? ""
+        let port = components.port ?? (scheme == "rtsp" ? 554 : 443)
+        let query = (components.queryItems ?? [])
+            .filter { $0.name != "user" && $0.name != "password" }
+            .sorted { ($0.name, $0.value ?? "") < ($1.name, $1.value ?? "") }
+            .map { "\($0.name)=\($0.value ?? "")" }
+            .joined(separator: "&")
+        return "\(scheme)|\(host)|\(port)|\(components.path)|\(query)"
+    }
+
+    nonisolated private static func resolve(
+        _ candidateGroups: [[URL]],
+        using endpointCheck: @escaping EndpointCheck
+    ) async throws -> URL {
+        var credentialsFailed = false
+        for candidates in candidateGroups {
+            do {
+                return try await firstAvailable(candidates, using: endpointCheck)
+            } catch is CancellationError {
+                throw CancellationError()
+            } catch let error as CameraEndpointCheck.Failure where error == .credentials {
+                credentialsFailed = true
+            } catch {
+                continue
+            }
+        }
+        throw credentialsFailed
+            ? CameraEndpointCheck.Failure.credentials
+            : CameraEndpointCheck.Failure.unavailable
+    }
+
+    nonisolated private static func firstAvailable(
+        _ candidates: [URL],
+        using endpointCheck: @escaping EndpointCheck
+    ) async throws -> URL {
+        try await withThrowingTaskGroup(of: URL.self) { group in
+            for candidate in candidates {
+                group.addTask {
+                    try await endpointCheck(candidate)
+                    return candidate
+                }
+            }
+            var credentialsFailed = false
+            while !group.isEmpty {
+                do {
+                    guard let url = try await group.next() else { break }
+                    group.cancelAll()
+                    return url
+                } catch is CancellationError {
+                    if Task.isCancelled {
+                        group.cancelAll()
+                        throw CancellationError()
+                    }
+                } catch let error as CameraEndpointCheck.Failure where error == .credentials {
+                    credentialsFailed = true
+                } catch {
+                    continue
+                }
+            }
+            throw credentialsFailed
+                ? CameraEndpointCheck.Failure.credentials
+                : CameraEndpointCheck.Failure.unavailable
+        }
+    }
+
     private static func errorMessage(for error: Error) -> String {
         (error as? CameraEndpointCheck.Failure)?.errorDescription
             ?? "Could not reach the camera. Check the address and connection."
@@ -217,6 +366,11 @@ final class CameraEndpointCheck: NSObject, URLSessionTaskDelegate, Sendable {
     }
 
     func check(configuration: URLSessionConfiguration = .ephemeral) async throws {
+        if url.scheme?.lowercased() == "rtsp" {
+            let endpoint = await MainActor.run { RTSPEndpointCheck(url: url) }
+            try await endpoint.check()
+            return
+        }
         let configuration = configuration.copy() as! URLSessionConfiguration
         configuration.timeoutIntervalForRequest = 8
         configuration.timeoutIntervalForResource = 8
@@ -264,8 +418,46 @@ final class CameraEndpointCheck: NSObject, URLSessionTaskDelegate, Sendable {
         var errorDescription: String? {
             switch self {
             case .credentials: "Check the camera username and password."
-            case .unavailable: "No FLV stream found. Check the camera address."
+            case .unavailable: "No compatible video stream found. Check the camera address."
             }
+        }
+    }
+}
+
+@MainActor
+private final class RTSPEndpointCheck {
+    private let ingest: RTSPIngest
+    private let displayLayer = AVSampleBufferDisplayLayer()
+    private var state = PlaybackState.connecting
+
+    init(url: URL) {
+        ingest = RTSPIngest(url: url)
+        ingest.retryDelay = .seconds(30)
+        ingest.failureRetryDelay = .seconds(30)
+        ingest.stallTimeout = 8
+    }
+
+    func check() async throws {
+        try ingest.attachDisplay(displayLayer) { [weak self] state in
+            self?.state = state
+        }
+        ingest.start()
+        defer {
+            ingest.stop()
+            ingest.detachDisplay(displayLayer)
+        }
+        let clock = ContinuousClock()
+        let deadline = clock.now + .seconds(8)
+        while clock.now < deadline, state == .connecting {
+            try await Task.sleep(for: .milliseconds(20))
+        }
+        switch state {
+        case .playing:
+            return
+        case .unauthorized:
+            throw CameraEndpointCheck.Failure.credentials
+        default:
+            throw CameraEndpointCheck.Failure.unavailable
         }
     }
 }

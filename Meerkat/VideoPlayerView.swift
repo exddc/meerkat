@@ -34,7 +34,7 @@ final class SampleBufferVideoView: NSView {
 
 struct VideoPlayerView: NSViewRepresentable {
     let camera: Camera
-    let ingest: HTTPFLVIngest?
+    let ingest: (any CameraIngest)?
     let isActive: Bool
     let onStateChange: @MainActor (PlaybackState) -> Void
 
@@ -59,11 +59,11 @@ struct VideoPlayerView: NSViewRepresentable {
 
     @MainActor
     final class Coordinator {
-        private var ingest: HTTPFLVIngest?
+        private var ingest: (any CameraIngest)?
         private var generation = UUID()
         private var onStateChange: ((PlaybackState) -> Void)?
 
-        func update(ingest: HTTPFLVIngest?, active: Bool, view: SampleBufferVideoView,
+        func update(ingest: (any CameraIngest)?, active: Bool, view: SampleBufferVideoView,
                     onStateChange: @escaping (PlaybackState) -> Void) {
             self.onStateChange = onStateChange
             guard active else { stop(view: view); return }

@@ -22,7 +22,7 @@ final class CameraIngestStore: ObservableObject {
 
     private struct Entry {
         let url: URL
-        let ingest: HTTPFLVIngest
+        let ingest: any CameraIngest
     }
 
     private let sessionConfiguration: URLSessionConfiguration
@@ -50,7 +50,12 @@ final class CameraIngestStore: ObservableObject {
                 continue
             }
             entries.removeValue(forKey: cameraID)?.ingest.stop()
-            let ingest = HTTPFLVIngest(url: url, configuration: sessionConfiguration)
+            let ingest: any CameraIngest
+            if url.scheme?.lowercased() == "rtsp" {
+                ingest = RTSPIngest(url: url)
+            } else {
+                ingest = HTTPFLVIngest(url: url, configuration: sessionConfiguration)
+            }
             entries[cameraID] = Entry(url: url, ingest: ingest)
             ingest.start()
             changed = true
@@ -61,7 +66,7 @@ final class CameraIngestStore: ObservableObject {
         }
     }
 
-    func ingest(for cameraID: UUID) -> HTTPFLVIngest? {
+    func ingest(for cameraID: UUID) -> (any CameraIngest)? {
         entries[cameraID]?.ingest
     }
 

@@ -30,8 +30,11 @@ struct CameraTests {
     }
 
     @Test
-    func rejectsNonHTTPSPlayback() {
-        for url in ["http://192.168.1.2/flv", "rtsp://192.168.1.2/live", "file:///tmp/stream.flv"] {
+    func acceptsHTTPSAndRTSPPlayback() {
+        for url in ["https://192.168.1.2/flv", "rtsp://192.168.1.2/live"] {
+            #expect(Camera(name: "", streamURLString: url).playableStreamURL != nil)
+        }
+        for url in ["http://192.168.1.2/flv", "file:///tmp/stream.flv"] {
             #expect(Camera(name: "", streamURLString: url).playableStreamURL == nil)
         }
     }
@@ -178,8 +181,53 @@ struct CameraInputTests {
         #expect(CameraInput("[fd00::1]:8443").streamURL?.path == "/flv")
     }
 
+    @Test func importsRTSPCredentialsAndRestoresThemAsUserInfo() throws {
+        let input = CameraInput("rtsp://viewer:p%40ss@192.168.1.25:8554/stream1")
+
+        #expect(input.address == "rtsp://192.168.1.25:8554/stream1")
+        #expect(input.username == "viewer")
+        #expect(input.password == "p@ss")
+        let url = try #require(input.streamURL)
+        #expect(url.scheme == "rtsp")
+        let components = try #require(URLComponents(url: url, resolvingAgainstBaseURL: false))
+        #expect(components.user == "viewer")
+        #expect(components.password == "p@ss")
+        #expect(url.path == "/stream1")
+    }
+
+    @Test func createsVendorCandidatesForBareAddress() throws {
+        var input = CameraInput("127.0.0.1:8554")
+        input.username = "admin"
+        input.password = "meerkat"
+
+        let urls = input.completeStreamURLs
+
+        #expect(urls.count == 5)
+        #expect(urls[0].scheme == "https")
+        #expect(urls[0].path == "/flv")
+        #expect(urls.dropFirst().map(\.scheme) == ["rtsp", "rtsp", "rtsp", "rtsp"])
+        #expect(urls.dropFirst().map(\.path) == ["/stream1", "/stream2", "/live0", "/live1"])
+        #expect(urls.allSatisfy { $0.port == 8554 })
+        #expect(input.completeStreamURLGroups.map { $0.map(\.path) } == [
+            ["/flv", "/stream1"],
+            ["/live0"],
+            ["/stream2"],
+            ["/live1"],
+        ])
+        for url in urls.dropFirst() {
+            let components = try #require(URLComponents(url: url, resolvingAgainstBaseURL: false))
+            #expect(components.user == "admin")
+            #expect(components.password == "meerkat")
+        }
+
+        input.address = "127.0.0.1"
+        let automaticPortURLs = input.completeStreamURLs.filter { $0.scheme == "rtsp" }
+        #expect(automaticPortURLs.count == 12)
+        #expect(Set(automaticPortURLs.map { $0.port ?? 554 }) == [554, 8554, 8555])
+    }
+
     @Test func rejectsInvalidAddresses() {
-        for input in ["", "https://", "http://192.168.1.2", "rtsp://camera/live", "not an address", "192.168.1.2:99999"] {
+        for input in ["", "https://", "http://192.168.1.2", "file:///tmp/live", "not an address", "192.168.1.2:99999"] {
             #expect(CameraInput(input).streamURL == nil)
         }
     }
@@ -245,7 +293,7 @@ struct CameraConfigurationEditorTests {
         )
 
         var input = editor.input
-        input.address = "new.test"
+        input.address = "https://new.test"
         input.requiresAuthentication = true
         input.username = "viewer"
         input.password = ""
@@ -277,6 +325,36 @@ struct CameraConfigurationEditorTests {
         #expect(await probes.startedURLs == [firstURL, secondURL, thirdURL])
     }
 
+    @Test func discoversAndPersistsRTSPEndpointForBareAddress() async throws {
+        let camera = Camera(name: "Front Door", streamURLString: "https://old.test/live")
+        camera.authenticationRequired = false
+        let probes = EndpointProbeRecorder()
+        let editor = CameraConfigurationEditor(
+            camera: camera,
+            debounceDuration: .zero,
+            endpointCheck: { try await probes.check($0) }
+        )
+
+        var input = editor.input
+        input.address = "127.0.0.1:8554"
+        editor.input = input
+        let candidates = input.completeStreamURLs
+        let primaryCandidates = try #require(input.completeStreamURLGroups.first)
+        let tapoURL = try #require(candidates.first { $0.path == "/stream1" })
+        try await waitUntil { await probes.hasStarted(primaryCandidates) }
+
+        await probes.succeed(tapoURL)
+        for candidate in primaryCandidates where candidate != tapoURL {
+            await probes.fail(candidate)
+        }
+        try await waitUntil { camera.streamURLString == tapoURL.absoluteString }
+
+        #expect(editor.endpointError == nil)
+        #expect(await probes.startedURLs.count == primaryCandidates.count)
+        editor.flush()
+        #expect(camera.streamURLString == tapoURL.absoluteString)
+    }
+
     @Test func flushesCompletePendingConfigurationWithoutValidation() async throws {
         let camera = Camera(name: "Front Door", streamURLString: "https://old.test/live")
         camera.authenticationRequired = false
@@ -296,6 +374,52 @@ struct CameraConfigurationEditorTests {
 
         #expect(camera.streamURLString == currentURL.absoluteString)
         #expect(await probes.startedURLs.isEmpty)
+    }
+
+    @Test func excludesEndpointAssignedToAnotherCamera() async throws {
+        let container = Persistence.preview(cameras: [])
+        let tapo = Camera(
+            name: "Tapo",
+            streamURLString: "rtsp://admin:meerkat@127.0.0.1:8554/stream1"
+        )
+        let eufy = Camera(name: "Eufy", streamURLString: "https://old.test/live")
+        container.mainContext.insert(tapo)
+        container.mainContext.insert(eufy)
+        try container.mainContext.save()
+        let probes = EndpointProbeRecorder()
+        let editor = CameraConfigurationEditor(
+            camera: eufy,
+            debounceDuration: .zero,
+            endpointCheck: { try await probes.check($0) }
+        )
+
+        var input = CameraInput("127.0.0.1")
+        input.username = "admin"
+        input.password = "meerkat"
+        editor.input = input
+        let tapoURL = try #require(input.completeStreamURLs.first {
+            $0.port == 8554 && $0.path == "/stream1"
+        })
+        let firstGroup = try #require(input.completeStreamURLGroups.first)
+            .filter { $0 != tapoURL }
+        try await waitUntil { await probes.hasStarted(firstGroup) }
+
+        for candidate in firstGroup {
+            await probes.fail(candidate)
+        }
+        let eufyURL = try #require(input.completeStreamURLs.first {
+            $0.port == 8555 && $0.path == "/live0"
+        })
+        let live0Group = try #require(input.completeStreamURLGroups.dropFirst().first)
+        try await waitUntil { await probes.hasStarted(live0Group) }
+        await probes.succeed(eufyURL)
+        for candidate in live0Group where candidate != eufyURL {
+            await probes.fail(candidate)
+        }
+        try await waitUntil { eufy.streamURLString == eufyURL.absoluteString }
+
+        let startedURLs = await probes.startedURLs
+        #expect(!startedURLs.contains(tapoURL))
     }
 
     @Test func doesNotFlushConfigurationIntoDeletedCamera() throws {
@@ -410,6 +534,10 @@ private actor EndpointProbeRecorder {
 
     func hasStarted(_ url: URL) -> Bool {
         continuations[url] != nil
+    }
+
+    func hasStarted(_ urls: [URL]) -> Bool {
+        urls.allSatisfy { continuations[$0] != nil }
     }
 
     func succeed(_ url: URL) {

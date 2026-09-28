@@ -3,7 +3,7 @@
 Local stand-ins for home cameras. Each command runs one camera.
 
 ```sh
-cd camera-mock-server
+cd mock
 uv sync
 uv run camera-mock-server reolink
 ```
