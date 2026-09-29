@@ -46,6 +46,42 @@ struct CameraTests {
         #expect(camera.isVisible)
     }
 
+    @Test
+    func duplicateCopiesConnectionSettingsWithUniqueIdentityAndName() {
+        let source = Camera(
+            name: "Front Door",
+            streamURLString: "rtsp://viewer:secret@192.168.1.20/live",
+            sortIndex: 0,
+            isVisible: false
+        )
+        source.authenticationRequired = true
+        let other = Camera(name: "Front Door 2", streamURLString: "", sortIndex: 4)
+
+        let copy = source.duplicate(among: [source, other])
+
+        #expect(copy.name == "Front Door 3")
+        #expect(copy.streamURLString == source.streamURLString)
+        #expect(copy.authenticationRequired == source.authenticationRequired)
+        #expect(copy.isVisible == source.isVisible)
+        #expect(copy.cameraID != source.cameraID)
+        #expect(copy.sortIndex == 5)
+    }
+
+    @Test
+    func duplicateContinuesNumberingFromNumberedCamera() {
+        let source = Camera(name: "Camera 3", streamURLString: "https://camera.test/live")
+        let existing = Camera(name: "Camera 4", streamURLString: "")
+
+        #expect(source.duplicate(among: [source, existing]).name == "Camera 5")
+    }
+
+    @Test
+    func duplicateGivesUnnamedCameraAName() {
+        let source = Camera(name: "", streamURLString: "https://camera.test/live")
+
+        #expect(source.duplicate(among: [source]).name == "Camera 2")
+    }
+
 }
 
 @MainActor
