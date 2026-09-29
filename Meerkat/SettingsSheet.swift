@@ -445,6 +445,12 @@ private struct CameraRow: View {
                         .onSubmit { addressFocused = false }
                         .textFieldStyle(.roundedBorder)
                         .accessibilityIdentifier("\(camera.cameraID.uuidString)-url")
+
+                    if camera.requiresAddressChange == true {
+                        Text("Change the address to add this camera to the grid")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
 
                 Divider()
@@ -487,6 +493,9 @@ private struct CameraRow: View {
             onChange()
         }
         .onChange(of: camera.authenticationRequired) {
+            onChange()
+        }
+        .onChange(of: camera.requiresAddressChange) {
             onChange()
         }
         .onChange(of: camera.isVisible) {

@@ -7,6 +7,7 @@ final class Camera {
     var name: String
     var streamURLString: String
     var authenticationRequired: Bool? = nil
+    var requiresAddressChange: Bool? = nil
     var sortIndex: Int
     var isVisible: Bool = true
 
@@ -29,7 +30,8 @@ final class Camera {
     }
 
     var playableStreamURL: URL? {
-        guard let parsed = URL(string: streamURLString),
+        guard requiresAddressChange != true,
+              let parsed = URL(string: streamURLString),
               ["https", "rtsp"].contains(parsed.scheme?.lowercased()),
               let host = parsed.host, !host.isEmpty else {
             return nil
@@ -62,6 +64,7 @@ final class Camera {
             isVisible: isVisible
         )
         copy.authenticationRequired = authenticationRequired
+        copy.requiresAddressChange = true
         return copy
     }
 }
