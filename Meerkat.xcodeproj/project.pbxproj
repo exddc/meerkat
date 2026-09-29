@@ -34,6 +34,9 @@
 		D00000000000000000000003 /* Sparkle in Frameworks */ = {isa = PBXBuildFile; productRef = D00000000000000000000005 /* Sparkle */; };
 		E00000000000000000000001 /* LaunchAtLoginController.swift in Sources */ = {isa = PBXBuildFile; fileRef = E00000000000000000000003 /* LaunchAtLoginController.swift */; };
 		E00000000000000000000002 /* LaunchAtLoginControllerTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = E00000000000000000000004 /* LaunchAtLoginControllerTests.swift */; };
+		F00000000000000000000001 /* CameraIngest.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000003 /* CameraIngest.swift */; };
+		F00000000000000000000002 /* RTSPIngest.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000004 /* RTSPIngest.swift */; };
+		F00000000000000000000005 /* RTSPPlaybackTests.swift in Sources */ = {isa = PBXBuildFile; fileRef = F00000000000000000000006 /* RTSPPlaybackTests.swift */; };
 /* End PBXBuildFile section */
 
 /* Begin PBXContainerItemProxy section */
@@ -77,6 +80,9 @@
 		D00000000000000000000006 /* Info.plist */ = {isa = PBXFileReference; lastKnownFileType = text.plist.xml; path = Info.plist; sourceTree = "<group>"; };
 		E00000000000000000000003 /* LaunchAtLoginController.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchAtLoginController.swift; sourceTree = "<group>"; };
 		E00000000000000000000004 /* LaunchAtLoginControllerTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = LaunchAtLoginControllerTests.swift; sourceTree = "<group>"; };
+		F00000000000000000000003 /* CameraIngest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = CameraIngest.swift; sourceTree = "<group>"; };
+		F00000000000000000000004 /* RTSPIngest.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RTSPIngest.swift; sourceTree = "<group>"; };
+		F00000000000000000000006 /* RTSPPlaybackTests.swift */ = {isa = PBXFileReference; lastKnownFileType = sourcecode.swift; path = RTSPPlaybackTests.swift; sourceTree = "<group>"; };
 /* End PBXFileReference section */
 
 /* Begin PBXFrameworksBuildPhase section */
@@ -124,8 +130,10 @@
 				A0000000000000000000001A /* Camera.swift */,
 				C00000000000000000000002 /* CameraInput.swift */,
 				C00000000000000000000004 /* CameraIngestStore.swift */,
+				F00000000000000000000003 /* CameraIngest.swift */,
 				A00000000000000000000028 /* CameraCertificateTrust.swift */,
 				B00000000000000000000003 /* HTTPFLVIngest.swift */,
+				F00000000000000000000004 /* RTSPIngest.swift */,
 				B00000000000000000000002 /* AVCSampleBuilder.swift */,
 				B00000000000000000000001 /* FLVParser.swift */,
 				B00000000000000000000004 /* PlaybackState.swift */,
@@ -151,6 +159,7 @@
 				B00000000000000000000021 /* FLVPlaybackTests.swift */,
 				A00000000000000000000026 /* CameraGridLayoutTests.swift */,
 				E00000000000000000000004 /* LaunchAtLoginControllerTests.swift */,
+				F00000000000000000000006 /* RTSPPlaybackTests.swift */,
 			);
 			path = MeerkatTests;
 			sourceTree = "<group>";
@@ -312,8 +321,10 @@
 				A00000000000000000000008 /* Camera.swift in Sources */,
 				C00000000000000000000001 /* CameraInput.swift in Sources */,
 				C00000000000000000000003 /* CameraIngestStore.swift in Sources */,
+				F00000000000000000000001 /* CameraIngest.swift in Sources */,
 				A0000000000000000000002A /* CameraCertificateTrust.swift in Sources */,
 				B0000000000000000000000D /* HTTPFLVIngest.swift in Sources */,
+				F00000000000000000000002 /* RTSPIngest.swift in Sources */,
 				B0000000000000000000000C /* AVCSampleBuilder.swift in Sources */,
 				B0000000000000000000000B /* FLVParser.swift in Sources */,
 				B0000000000000000000000E /* PlaybackState.swift in Sources */,
@@ -339,6 +350,7 @@
 				B00000000000000000000022 /* FLVPlaybackTests.swift in Sources */,
 				A00000000000000000000010 /* CameraGridLayoutTests.swift in Sources */,
 				E00000000000000000000002 /* LaunchAtLoginControllerTests.swift in Sources */,
+				F00000000000000000000005 /* RTSPPlaybackTests.swift in Sources */,
 			);
 			runOnlyForDeploymentPostprocessing = 0;
 		};

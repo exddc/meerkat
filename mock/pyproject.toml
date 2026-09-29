@@ -10,7 +10,7 @@ dependencies = [
 ]
 
 [project.scripts]
-camera-mock-server = "camera_mock_server.cli:main"
+meerkat-mock = "camera_mock_server.cli:main"
 
 [build-system]
 requires = ["hatchling"]

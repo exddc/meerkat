@@ -164,7 +164,7 @@ struct FLVPlaybackTests {
 
 }
 
-private final class FixtureStreamProtocol: URLProtocol, @unchecked Sendable {
+final class FixtureStreamProtocol: URLProtocol, @unchecked Sendable {
     static let counts = Mutex<[String: (starts: Int, stops: Int)]>([:])
     static let fixture = Data(base64Encoded: "RkxWAQEAAAAJAAAAABIAALcAAAAAAAAAAgAKb25NZXRhRGF0YQgAAAAIAAhkdXJhdGlvbgA/8AAAAAAAAAAFd2lkdGgAQIQAAAAAAAAABmhlaWdodABAdoAAAAAAAAANdmlkZW9kYXRhcmF0ZQAAAAAAAAAAAAAJZnJhbWVyYXRlAEAkAAAAAAAAAAx2aWRlb2NvZGVjaWQAQBwAAAAAAAAAB2VuY29kZXICAAxMYXZmNjMuMS4xMDEACGZpbGVzaXplAECeWAAAAAAAAAAJAAAAwgkAAC4AAAAAAAAAFwAAAAABQsAW/+EAGWdCwBbZAKAv+XARAAADAAEAAAMAFA8WLkgBAAVoy4PLIAAAADkJAAVLAAAAAAAAABcBAAAAAAACcAYF//9s3EXpvebZSLeWLNgg2SPu73gyNjQgLSBjb3JlIDE2NSByMzIyMiBiMzU2MDVhIC0gSC4yNjQvTVBFRy00IEFWQyBjb2RlYyAtIENvcHlsZWZ0IDIwMDMtMjAyNSAtIGh0dHA6Ly93d3cudmlkZW9sYW4ub3JnL3gyNjQuaHRtbCAtIG9wdGlvbnM6IGNhYmFjPTAgcmVmPTMgZGVibG9jaz0xOjA6MCBhbmFseXNlPTB4MToweDExMSBtZT1oZXggc3VibWU9NyBwc3k9MSBwc3lfcmQ9MS4wMDowLjAwIG1peGVkX3JlZj0xIG1lX3JhbmdlPTE2IGNocm9tYV9tZT0xIHRyZWxsaXM9MSA4eDhkY3Q9MCBjcW09MCBkZWFkem9uZT0yMSwxMSBmYXN0X3Bza2lwPTEgY2hyb21hX3FwX29mZnNldD0tMiB0aHJlYWRzPTExIGxvb2thaGVhZF90aHJlYWRzPTEgc2xpY2VkX3RocmVhZHM9MCBucj0wIGRlY2ltYXRlPTEgaW50ZXJsYWNlZD0wIGJsdXJheV9jb21wYXQ9MCBjb25zdHJhaW5lZF9pbnRyYT0wIGJmcmFtZXM9MCB3ZWlnaHRwPTAga2V5aW50PTEwIGtleWludF9taW49MSBzY2VuZWN1dD00MCBpbnRyYV9yZWZyZXNoPTAgcmNfbG9va2FoZWFkPTEwIHJjPWNyZiBtYnRyZWU9MSBjcmY9MjMuMCBxY29tcD0wLjYwIHFwbWluPTAgcXBtYXg9NjkgcXBzdGVwPTQgaXBfcmF0aW89MS40MCBhcT0xOjEuMDAAgAAAAs5liIQP8RigAC0jHAAFXKOAAIYMnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJycnJyddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddddeAAAFVgkAABAAAGQAAAAAJwEAAAAAAAAHQZo4H+AOZgAAABsJAAARAADIAAAAACcBAAAAAAAACEGaVAf4A5mAAAAAHAkAABAAASwAAAAAJwEAAAAAAAAHQZpgP8AczAAAABsJAAAQAAGQAAAAACcBAAAAAAAAB0GagD/AHMwAAAAbCQAAEAAB9AAAAAAnAQAAAAAAAAdBmqA/wBzMAAAAGwkAABAAAlgAAAAAJwEAAAAAAAAHQZrAP8AczAAAABsJAAAQAAK8AAAAACcBAAAAAAAAB0Ga4D/AHMwAAAAbCQAAEAADIAAAAAAnAQAAAAAAAAdBmwA7wBzMAAAAGwkAABAAA4QAAAAAJwEAAAAAAAAHQZsgN8AczAAAABsJAAAFAAOEAAAAABcCAAAAAAAAEA==")!
 
@@ -185,8 +185,8 @@ private final class FixtureStreamProtocol: URLProtocol, @unchecked Sendable {
             client?.urlProtocol(self, didReceive: HTTPURLResponse(url: url, statusCode: url.path == "/unavailable" ? 503 : 401,
                 httpVersion: "HTTP/1.1", headerFields: nil)!, cacheStoragePolicy: .notAllowed)
             client?.urlProtocolDidFinishLoading(self)
-        case "/redirect":
-            let target = URL(string: "https://fixture.test/redirect-target")!
+        case "/redirect", "/probe-redirect":
+            let target = URL(string: "https://fixture.test\(url.path)-target")!
             let response = HTTPURLResponse(url: url, statusCode: 302, httpVersion: "HTTP/1.1",
                 headerFields: ["Location": target.absoluteString])!
             client?.urlProtocol(self, wasRedirectedTo: URLRequest(url: target), redirectResponse: response)

@@ -419,7 +419,7 @@ private struct CameraRow: View {
 
                 CameraField(
                     title: "Camera address",
-                    detail: "Enter an IP address or a complete HTTPS URL"
+                    detail: "Enter an IP address or a complete HTTPS or RTSP URL"
                 ) {
                     if let endpointError = editor.endpointError {
                         Label(endpointError, systemImage: "exclamationmark.triangle.fill")
