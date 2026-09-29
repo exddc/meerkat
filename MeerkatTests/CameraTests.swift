@@ -261,11 +261,23 @@ struct CameraInputTests {
         }
     }
 
+    @Test func endpointProbeRejectsRedirects() async throws {
+        let configuration = URLSessionConfiguration.ephemeral
+        configuration.protocolClasses = [FixtureStreamProtocol.self]
+        do {
+            try await CameraEndpointCheck(url: URL(string: "https://fixture.test/probe-redirect")!).check(configuration: configuration)
+            Issue.record("Camera checks must not follow redirects")
+        } catch let error as CameraEndpointCheck.Failure {
+            #expect(error == .unavailable)
+        }
+        #expect(FixtureStreamProtocol.counts.withLock { $0["/probe-redirect-target"]?.starts ?? 0 } == 0)
+    }
+
     @Test func endpointProbeValidatesStreamBytesAndStatus() async throws {
         let configuration = URLSessionConfiguration.ephemeral
         configuration.protocolClasses = [CameraCheckProtocol.self]
         try await CameraEndpointCheck(url: URL(string: "https://fixture.test/flv")!).check(configuration: configuration)
-        for path in ["html", "missing", "unauthorized", "empty"] {
+        for path in ["html", "missing", "unauthorized", "empty", "signature-only", "corrupt", "hevc"] {
             do {
                 try await CameraEndpointCheck(url: URL(string: "https://fixture.test/\(path)")!).check(configuration: configuration)
                 Issue.record("Accepted invalid endpoint: \(path)")
@@ -343,6 +355,8 @@ struct CameraConfigurationEditorTests {
         let tapoURL = try #require(candidates.first { $0.path == "/stream1" })
         try await waitUntil { await probes.hasStarted(primaryCandidates) }
 
+        #expect(camera.streamURLString == "https://old.test/live")
+
         await probes.succeed(tapoURL)
         for candidate in primaryCandidates where candidate != tapoURL {
             await probes.fail(candidate)
@@ -353,6 +367,55 @@ struct CameraConfigurationEditorTests {
         #expect(await probes.startedURLs.count == primaryCandidates.count)
         editor.flush()
         #expect(camera.streamURLString == tapoURL.absoluteString)
+    }
+
+    @Test func failedDiscoveryDoesNotSaveGuessedEndpoint() async throws {
+        let camera = Camera(name: "Camera", streamURLString: "https://old.test/live")
+        camera.authenticationRequired = false
+        let editor = CameraConfigurationEditor(camera: camera, debounceDuration: .zero, endpointCheck: { _ in
+            throw CameraEndpointCheck.Failure.unavailable
+        })
+        var input = editor.input
+        input.address = "127.0.0.1"
+        editor.input = input
+        try await waitUntil { editor.endpointError != nil }
+        editor.flush()
+        #expect(camera.streamURLString == "https://old.test/live")
+    }
+
+    @Test func discoveryKeepsCredentialFailureAfterOtherCandidatesFail() async throws {
+        let camera = Camera(name: "Camera", streamURLString: "https://old.test/live")
+        let editor = CameraConfigurationEditor(camera: camera, debounceDuration: .zero, endpointCheck: { url in
+            throw url.path == "/live0"
+                ? CameraEndpointCheck.Failure.credentials : CameraEndpointCheck.Failure.unavailable
+        })
+        var input = CameraInput("127.0.0.1")
+        input.username = "viewer"
+        input.password = "wrong"
+        editor.input = input
+        try await waitUntil { editor.endpointError != nil }
+        #expect(editor.endpointError == "Check the camera username and password.")
+        #expect(camera.streamURLString == "https://old.test/live")
+    }
+
+    @Test func closingDuringDiscoveryPreservesPreviousAddress() async throws {
+        let camera = Camera(name: "Front Door", streamURLString: "https://old.test/live")
+        camera.authenticationRequired = false
+        let probes = EndpointProbeRecorder()
+        let editor = CameraConfigurationEditor(
+            camera: camera, debounceDuration: .zero,
+            endpointCheck: { try await probes.check($0) }
+        )
+        var input = editor.input
+        input.address = "127.0.0.1:8554"
+        editor.input = input
+        let candidates = try #require(input.completeStreamURLGroups.first)
+        try await waitUntil { await probes.hasStarted(candidates) }
+        editor.flush()
+        for candidate in candidates { await probes.succeed(candidate) }
+        try await Task.sleep(for: .milliseconds(20))
+        #expect(camera.streamURLString == "https://old.test/live")
+        #expect(await probes.startedURLs.count == candidates.count)
     }
 
     @Test func flushesCompletePendingConfigurationWithoutValidation() async throws {
@@ -420,6 +483,25 @@ struct CameraConfigurationEditorTests {
 
         let startedURLs = await probes.startedURLs
         #expect(!startedURLs.contains(tapoURL))
+    }
+
+    @Test func duplicateEndpointShowsDuplicateError() async throws {
+        let container = Persistence.preview(cameras: [])
+        let existing = Camera(name: "Existing", streamURLString: "rtsp://127.0.0.1:8554/stream1")
+        let camera = Camera(name: "New", streamURLString: "https://old.test/live")
+        camera.authenticationRequired = false
+        container.mainContext.insert(existing)
+        container.mainContext.insert(camera)
+        try container.mainContext.save()
+        let editor = CameraConfigurationEditor(camera: camera, debounceDuration: .zero, endpointCheck: { _ in
+            Issue.record("Duplicate endpoints must not be probed")
+        })
+        var input = editor.input
+        input.address = existing.streamURLString
+        editor.input = input
+        try await waitUntil { editor.endpointError != nil }
+        #expect(editor.endpointError == "This camera is already added.")
+        #expect(camera.streamURLString == "https://old.test/live")
     }
 
     @Test func doesNotFlushConfigurationIntoDeletedCamera() throws {
@@ -559,7 +641,15 @@ private final class CameraCheckProtocol: URLProtocol, @unchecked Sendable {
         let response = HTTPURLResponse(url: url, statusCode: status, httpVersion: "HTTP/1.1", headerFields: nil)!
         client?.urlProtocol(self, didReceive: response, cacheStoragePolicy: .notAllowed)
         if url.path != "/empty" && url.path != "/stall" {
-            let bytes = url.path == "/flv" ? [UInt8]("FLV".utf8) : [UInt8]("<html>".utf8)
+            let data: Data
+            switch url.path {
+            case "/flv": data = FixtureStreamProtocol.fixture
+            case "/signature-only": data = Data("FLV".utf8)
+            case "/corrupt": data = FixtureStreamProtocol.corruptFixture
+            case "/hevc": data = FixtureStreamProtocol.hevcFixture
+            default: data = Data("<html>".utf8)
+            }
+            let bytes = [UInt8](data)
             for byte in bytes {
                 client?.urlProtocol(self, didLoad: Data([byte]))
             }

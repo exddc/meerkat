@@ -100,7 +100,7 @@ struct CameraInput: Equatable {
         ].filter { !$0.isEmpty }
     }
 
-    private var usesEndpointDiscovery: Bool {
+    var usesEndpointDiscovery: Bool {
         let address = address.trimmingCharacters(in: .whitespacesAndNewlines)
         guard !address.contains("://"), let components = Self.components(address) else { return false }
         return components.path.isEmpty || components.path == "/"
@@ -201,7 +201,7 @@ final class CameraConfigurationEditor: ObservableObject {
     func flush() {
         updateTask?.cancel()
         updateRevision &+= 1
-        guard let url = resolvedURL ?? input.completeStreamURL else { return }
+        guard let url = resolvedURL ?? (input.usesEndpointDiscovery ? nil : input.completeStreamURL) else { return }
         persist(input, url: url)
     }
 
@@ -226,18 +226,25 @@ final class CameraConfigurationEditor: ObservableObject {
                     self?.setEndpointError("Enter a valid camera address.", for: revision)
                     return
                 }
-                let candidateGroups = input.completeStreamURLGroups.compactMap { group in
+                let groups = input.completeStreamURLGroups
+                guard !groups.isEmpty else {
+                    self?.setEndpointError("Enter the camera username and password.", for: revision)
+                    return
+                }
+                let candidateGroups = groups.compactMap { group in
                     let available = group.filter {
                         !usedEndpoints.contains(Self.endpointIdentity(for: $0))
                     }
                     return available.isEmpty ? nil : available
                 }
                 guard !candidateGroups.isEmpty else {
-                    self?.setEndpointError("Enter the camera username and password.", for: revision)
+                    self?.setEndpointError("This camera is already added.", for: revision)
                     return
                 }
                 guard self?.updateRevision == revision else { return }
-                guard self?.persist(input, url: url) == true else { return }
+                if !input.usesEndpointDiscovery {
+                    guard self?.persist(input, url: url) == true else { return }
+                }
 
                 let resolvedURL = try await Self.resolve(candidateGroups, using: endpointCheck)
                 try Task.checkCancellation()
@@ -303,6 +310,7 @@ final class CameraConfigurationEditor: ObservableObject {
     ) async throws -> URL {
         var credentialsFailed = false
         for candidates in candidateGroups {
+            try Task.checkCancellation()
             do {
                 return try await firstAvailable(candidates, using: endpointCheck)
             } catch is CancellationError {
@@ -325,7 +333,9 @@ final class CameraConfigurationEditor: ObservableObject {
         try await withThrowingTaskGroup(of: URL.self) { group in
             for candidate in candidates {
                 group.addTask {
+                    try Task.checkCancellation()
                     try await endpointCheck(candidate)
+                    try Task.checkCancellation()
                     return candidate
                 }
             }
@@ -366,6 +376,7 @@ final class CameraEndpointCheck: NSObject, URLSessionTaskDelegate, Sendable {
     }
 
     func check(configuration: URLSessionConfiguration = .ephemeral) async throws {
+        try Task.checkCancellation()
         if url.scheme?.lowercased() == "rtsp" {
             let endpoint = await MainActor.run { RTSPEndpointCheck(url: url) }
             try await endpoint.check()
@@ -384,13 +395,20 @@ final class CameraEndpointCheck: NSObject, URLSessionTaskDelegate, Sendable {
         guard let response = response as? HTTPURLResponse else { throw Failure.unavailable }
         if response.statusCode == 401 || response.statusCode == 403 { throw Failure.credentials }
         guard (200..<300).contains(response.statusCode) else { throw Failure.unavailable }
-        var signature: [UInt8] = []
+        var parser = FLVParser()
+        var builder = AVCSampleBuilder()
         for try await byte in bytes {
             try Task.checkCancellation()
-            signature.append(byte)
-            if signature.count == 3 { break }
+            do {
+                for tag in try parser.append(Data([byte])) {
+                    if try builder.sample(for: tag) != nil { return }
+                }
+            } catch {
+                throw Failure.unavailable
+            }
         }
-        guard signature == [0x46, 0x4c, 0x56] else { throw Failure.unavailable }
+        try Task.checkCancellation()
+        throw Failure.unavailable
     }
 
     func urlSession(_ session: URLSession, task: URLSessionTask,

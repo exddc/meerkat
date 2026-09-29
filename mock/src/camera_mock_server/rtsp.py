@@ -1,12 +1,15 @@
 import asyncio
-import base64
-import secrets
-import struct
-from contextlib import suppress
+import json
+import os
+import shutil
+import socket
+from collections.abc import AsyncIterator
+from contextlib import asynccontextmanager
 from dataclasses import dataclass
+from pathlib import Path
+from tempfile import TemporaryDirectory
 
 from camera_mock_server.config import DEFAULT_PASSWORD, DEFAULT_USERNAME
-from camera_mock_server.media import frame_step, h264_media
 
 
 @dataclass(frozen=True)
@@ -15,273 +18,168 @@ class RTSPConfiguration:
     username: str = DEFAULT_USERNAME
     password: str = DEFAULT_PASSWORD
     require_auth: bool = True
+    auth_method: str = "basic"
+
+    def __post_init__(self) -> None:
+        if self.auth_method not in {"basic", "digest"}:
+            raise ValueError("Authentication must be basic or digest")
+        if not self.paths or any(not path.startswith("/") for path in self.paths):
+            raise ValueError("Stream paths must start with /")
+        if self.require_auth and (not self.username or self.username == "any" or not self.password):
+            raise ValueError("Authentication requires a username (other than 'any') and password")
 
 
-def _authorized(headers: dict[str, str], configuration: RTSPConfiguration) -> bool:
-    if not configuration.require_auth:
-        return True
-    scheme, _, value = headers.get("authorization", "").partition(" ")
-    if scheme.lower() != "basic":
-        return False
-    try:
-        supplied = base64.b64decode(value, validate=True)
-    except ValueError:
-        return False
-    return secrets.compare_digest(
-        supplied,
-        f"{configuration.username}:{configuration.password}".encode(),
-    )
-
-
-def _response(
-    code: int,
-    cseq: str,
-    *,
-    headers: dict[str, str] | None = None,
-    body: bytes = b"",
-) -> bytes:
-    reasons = {
-        200: "OK",
-        400: "Bad Request",
-        401: "Unauthorized",
-        404: "Not Found",
-        405: "Method Not Allowed",
-        455: "Method Not Valid in This State",
-        461: "Unsupported Transport",
+def server_config(host: str, port: int, camera: RTSPConfiguration) -> dict:
+    if not 1 <= port <= 65535:
+        raise ValueError("Port must be between 1 and 65535")
+    address = f"[{host}]" if ":" in host else host
+    paths = [path.lstrip("/") for path in camera.paths]
+    return {
+        "logLevel": "warn",
+        "rtspAddress": f"{address}:{port}",
+        "rtspTransports": ["tcp"],
+        "rtspAuthMethods": [camera.auth_method],
+        "rtmp": False,
+        "hls": False,
+        "webrtc": False,
+        "srt": False,
+        "moq": False,
+        "authInternalUsers": [
+            {
+                "user": "any",
+                "ips": ["127.0.0.1", "::1"],
+                "permissions": [{"action": "publish", "path": path} for path in paths],
+            },
+            {
+                "user": camera.username if camera.require_auth else "any",
+                "pass": camera.password if camera.require_auth else "",
+                "permissions": [{"action": "read", "path": path} for path in paths],
+            },
+        ],
+        "paths": {path: {"source": "publisher"} for path in paths},
     }
-    fields = {"CSeq": cseq, "Server": "Meerkat Camera Mock", **(headers or {})}
-    if body:
-        fields["Content-Length"] = str(len(body))
-    head = [
-        f"RTSP/1.0 {code} {reasons[code]}",
-        *(f"{key}: {value}" for key, value in fields.items()),
+
+
+def publisher_command(ffmpeg: str, url: str) -> list[str]:
+    return [
+        ffmpeg,
+        "-nostdin",
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-re",
+        "-f",
+        "lavfi",
+        "-i",
+        "testsrc2=size=640x360:rate=10",
+        "-an",
+        "-c:v",
+        "libx264",
+        "-preset",
+        "ultrafast",
+        "-tune",
+        "zerolatency",
+        "-pix_fmt",
+        "yuv420p",
+        "-profile:v",
+        "baseline",
+        "-g",
+        "10",
+        "-f",
+        "rtsp",
+        "-rtsp_transport",
+        "tcp",
+        url,
     ]
-    return "\r\n".join(head).encode() + b"\r\n\r\n" + body
 
 
-def _sdp(host: str) -> bytes:
-    sps, pps, _ = h264_media()
-    sprop = f"{base64.b64encode(sps).decode()},{base64.b64encode(pps).decode()}"
-    profile_level_id = sps[1:4].hex().upper()
-    lines = [
-        "v=0",
-        f"o=- 0 0 IN IP4 {host}",
-        "s=Camera",
-        "t=0 0",
-        "a=control:*",
-        "m=video 0 RTP/AVP 96",
-        "a=rtpmap:96 H264/90000",
-        f"a=fmtp:96 packetization-mode=1;profile-level-id={profile_level_id};"
-        f"sprop-parameter-sets={sprop}",
-        "a=control:trackID=0",
-    ]
-    return ("\r\n".join(lines) + "\r\n").encode()
-
-
-def _nal_packets(nal: bytes, maximum_size: int = 1200) -> tuple[bytes, ...]:
-    if len(nal) <= maximum_size:
-        return (nal,)
-    indicator = (nal[0] & 0xE0) | 28
-    nal_type = nal[0] & 0x1F
-    chunk_size = maximum_size - 2
-    chunks = [nal[index : index + chunk_size] for index in range(1, len(nal), chunk_size)]
-    packets: list[bytes] = []
-    for index, chunk in enumerate(chunks):
-        start = 0x80 if index == 0 else 0
-        end = 0x40 if index == len(chunks) - 1 else 0
-        packets.append(bytes((indicator, nal_type | start | end)) + chunk)
-    return tuple(packets)
-
-
-def _request_path(uri: str) -> str:
-    path = uri.split("?", 1)[0]
-    if "://" in path:
-        path = path.split("://", 1)[1]
-        path = "/" + path.split("/", 1)[1] if "/" in path else "/"
-    return path.rstrip("/") or "/"
-
-
-def _known_stream(path: str, paths: tuple[str, ...]) -> bool:
-    return any(path == allowed or path.startswith(f"{allowed}/") for allowed in paths)
-
-
-def _interleaved_channel(transport: str) -> int | None:
-    for specification in transport.split(","):
-        fields = [field.strip() for field in specification.split(";")]
-        if fields[0].upper() != "RTP/AVP/TCP":
-            continue
-        for field in fields:
-            name, separator, value = field.partition("=")
-            if separator and name.lower() == "interleaved":
-                start, _, _ = value.partition("-")
-                if start.isdigit() and int(start) <= 254:
-                    return int(start)
-    return None
-
-
-async def _stream_rtp(writer: asyncio.StreamWriter, channel: int) -> None:
-    sps, pps, frames = h264_media()
-    step = frame_step()
-    sequence = 0
-    timestamp_offset = 0
-    ssrc = 0x4D454552
-    try:
-        while True:
-            previous = frames[0][0]
-            for index, (timestamp, nals) in enumerate(frames):
-                if index:
-                    await asyncio.sleep(max(0, timestamp - previous) / 1000)
-                keyframe = any(nal[0] & 0x1F == 5 for nal in nals)
-                frame_nals = (sps, pps, *nals) if keyframe else nals
-                packets = tuple(packet for nal in frame_nals for packet in _nal_packets(nal))
-                for packet_index, payload in enumerate(packets):
-                    marker = packet_index == len(packets) - 1
-                    header = struct.pack(
-                        "!BBHII",
-                        0x80,
-                        96 | (0x80 if marker else 0),
-                        sequence,
-                        ((timestamp_offset + timestamp) * 90) & 0xFFFFFFFF,
-                        ssrc,
-                    )
-                    sequence = (sequence + 1) & 0xFFFF
-                    rtp = header + payload
-                    writer.write(bytes((0x24, channel)) + len(rtp).to_bytes(2, "big") + rtp)
-                await writer.drain()
-                previous = timestamp
-            await asyncio.sleep(step / 1000)
-            timestamp_offset += frames[-1][0] + step
-    except ConnectionError:
+async def _stop(process: asyncio.subprocess.Process) -> None:
+    if process.returncode is not None:
         return
-
-
-async def _handle_client(
-    reader: asyncio.StreamReader,
-    writer: asyncio.StreamWriter,
-    configuration: RTSPConfiguration,
-    host: str,
-) -> None:
-    stream_task: asyncio.Task[None] | None = None
-    setup_channel: int | None = None
     try:
+        process.terminate()
+    except ProcessLookupError:
+        return
+    try:
+        await asyncio.wait_for(process.wait(), timeout=3)
+    except TimeoutError:
+        process.kill()
+        await process.wait()
+
+
+async def _wait_for_listener(host: str, port: int, process: asyncio.subprocess.Process) -> None:
+    async with asyncio.timeout(10):
         while True:
+            if process.returncode is not None:
+                raise RuntimeError(f"MediaMTX exited with status {process.returncode}")
             try:
-                raw = await reader.readuntil(b"\r\n\r\n")
-            except (asyncio.IncompleteReadError, asyncio.LimitOverrunError):
-                break
-            lines = raw.decode(errors="replace").split("\r\n")
-            request = lines[0].split(" ", 2)
-            if len(request) != 3:
-                writer.write(_response(400, "0"))
-                await writer.drain()
-                break
-            method, uri, _ = request
-            headers = {
-                key.lower(): value.strip()
-                for line in lines[1:]
-                if ":" in line
-                for key, value in [line.split(":", 1)]
-            }
-            cseq = headers.get("cseq", "0")
-            content_length = headers.get("content-length", "0")
-            if not content_length.isdigit():
-                writer.write(_response(400, cseq))
-                await writer.drain()
-                break
-            if int(content_length):
-                await reader.readexactly(int(content_length))
-
-            if method != "OPTIONS" and not _authorized(headers, configuration):
-                response = _response(
-                    401,
-                    cseq,
-                    headers={"WWW-Authenticate": 'Basic realm="Camera Mock Server"'},
-                )
-            elif method == "OPTIONS":
-                response = _response(
-                    200,
-                    cseq,
-                    headers={"Public": "OPTIONS, DESCRIBE, SETUP, PLAY, GET_PARAMETER, TEARDOWN"},
-                )
-            elif not _known_stream(_request_path(uri), configuration.paths):
-                response = _response(404, cseq)
-            elif method == "DESCRIBE":
-                response = _response(
-                    200,
-                    cseq,
-                    headers={
-                        "Content-Type": "application/sdp",
-                        "Content-Base": f"{uri.rstrip('/')}/",
-                    },
-                    body=_sdp(host),
-                )
-            elif method == "SETUP":
-                channel = _interleaved_channel(headers.get("transport", ""))
-                if channel is None:
-                    response = _response(461, cseq)
-                else:
-                    setup_channel = channel
-                    response = _response(
-                        200,
-                        cseq,
-                        headers={
-                            "Transport": f"RTP/AVP/TCP;unicast;interleaved={channel}-{channel + 1}",
-                            "Session": "meerkat",
-                        },
-                    )
-            elif method == "PLAY":
-                if setup_channel is None:
-                    response = _response(455, cseq)
-                else:
-                    response = _response(
-                        200,
-                        cseq,
-                        headers={
-                            "Session": "meerkat",
-                            "RTP-Info": f"url={uri}/trackID=0;seq=0;rtptime=0",
-                        },
-                    )
-            elif method == "GET_PARAMETER" or method == "TEARDOWN":
-                response = _response(200, cseq, headers={"Session": "meerkat"})
+                _, writer = await asyncio.open_connection(host, port)
+            except OSError:
+                await asyncio.sleep(0.05)
             else:
-                response = _response(405, cseq)
-
-            writer.write(response)
-            await writer.drain()
-            if (
-                method == "PLAY"
-                and response.startswith(b"RTSP/1.0 200")
-                and stream_task is None
-                and setup_channel is not None
-            ):
-                stream_task = asyncio.create_task(_stream_rtp(writer, setup_channel))
-            if method == "TEARDOWN":
-                break
-    finally:
-        if stream_task is not None:
-            stream_task.cancel()
-            with suppress(asyncio.CancelledError):
-                await stream_task
-        writer.close()
-        with suppress(ConnectionError):
-            await writer.wait_closed()
+                writer.close()
+                await writer.wait_closed()
+                return
 
 
-async def create_rtsp_server(
+@asynccontextmanager
+async def camera_server(
     host: str,
     port: int,
-    configuration: RTSPConfiguration,
-) -> asyncio.Server:
-    return await asyncio.start_server(
-        lambda reader, writer: _handle_client(reader, writer, configuration, host),
-        host,
-        port,
-    )
+    camera: RTSPConfiguration,
+) -> AsyncIterator[tuple[asyncio.subprocess.Process, ...]]:
+    binaries = {name: shutil.which(name) for name in ("mediamtx", "ffmpeg")}
+    missing = [name for name, binary in binaries.items() if binary is None]
+    if missing:
+        raise RuntimeError(f"Missing executable(s): {', '.join(missing)}. See mock/README.md.")
+    config = server_config(host, port, camera)
+    for family, kind, protocol, _, address in socket.getaddrinfo(
+        host, port, type=socket.SOCK_STREAM
+    ):
+        with socket.socket(family, kind, protocol) as reservation:
+            reservation.setsockopt(socket.SOL_SOCKET, socket.SO_REUSEADDR, 1)
+            reservation.bind(address)
+    connect_host = {"0.0.0.0": "127.0.0.1", "::": "::1"}.get(host, host)
+    publisher = config["authInternalUsers"][0]
+    publisher["ips"] = list({entry[4][0] for entry in socket.getaddrinfo(connect_host, port)})
+    address = f"[{connect_host}]" if ":" in connect_host else connect_host
+    processes: list[asyncio.subprocess.Process] = []
+    with TemporaryDirectory(prefix="meerkat-camera-") as directory:
+        config_path = Path(directory) / "mediamtx.yml"
+        config_path.write_text(json.dumps(config))
+        config_path.chmod(0o600)
+        environment = {
+            key: value for key, value in os.environ.items() if not key.startswith("MTX_")
+        }
+        try:
+            server = await asyncio.create_subprocess_exec(
+                str(binaries["mediamtx"]),
+                str(config_path),
+                env=environment,
+            )
+            processes.append(server)
+            await _wait_for_listener(connect_host, port, server)
+            for path in camera.paths:
+                publisher = await asyncio.create_subprocess_exec(
+                    *publisher_command(str(binaries["ffmpeg"]), f"rtsp://{address}:{port}{path}")
+                )
+                processes.append(publisher)
+            yield tuple(processes)
+        finally:
+            for process in reversed(processes):
+                await _stop(process)
 
 
 async def run_rtsp_server(host: str, port: int, configuration: RTSPConfiguration) -> None:
-    server = await create_rtsp_server(host, port, configuration)
-    addresses = ", ".join(f"rtsp://{host}:{port}{path}" for path in configuration.paths)
-    print(f"RTSP camera running on {addresses}")
-    async with server:
-        await server.serve_forever()
+    async with camera_server(host, port, configuration) as processes:
+        print(
+            f"RTSP camera starting on {host}:{port}: {', '.join(configuration.paths)}", flush=True
+        )
+        waiters = [asyncio.create_task(process.wait()) for process in processes]
+        try:
+            done, _ = await asyncio.wait(waiters, return_when=asyncio.FIRST_COMPLETED)
+            raise RuntimeError(f"Camera process exited with status {next(iter(done)).result()}")
+        finally:
+            for waiter in waiters:
+                waiter.cancel()
+            await asyncio.gather(*waiters, return_exceptions=True)

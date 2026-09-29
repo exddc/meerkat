@@ -1,4 +1,5 @@
 import AVFoundation
+import CryptoKit
 import Foundation
 import Network
 
@@ -32,6 +33,8 @@ final class RTSPIngest: CameraIngest {
     private var sampleBuilder = RTPH264SampleBuilder()
     private var phase = Phase.disconnected
     private var sequence = 0
+    private var authentication: RTSPAuthentication?
+    private var pendingRequest: (method: String, uri: URL, headers: [String: String], retried: Bool)?
     private var sessionID: String?
     private var rtpChannel: UInt8 = 0
     private var retry: Task<Void, Never>?
@@ -73,7 +76,8 @@ final class RTSPIngest: CameraIngest {
 
     private func connect() {
         guard active, let host = url.host,
-              let port = NWEndpoint.Port(rawValue: UInt16(url.port ?? 554)) else {
+              let portNumber = UInt16(exactly: url.port ?? 554),
+              let port = NWEndpoint.Port(rawValue: portNumber) else {
             fail(.unsupported)
             return
         }
@@ -82,6 +86,8 @@ final class RTSPIngest: CameraIngest {
         sampleBuilder = RTPH264SampleBuilder()
         phase = .disconnected
         sequence = 0
+        authentication = nil
+        pendingRequest = nil
         sessionID = nil
         rtpChannel = 0
         lastFrame = Date()
@@ -151,6 +157,17 @@ final class RTSPIngest: CameraIngest {
     }
 
     private func process(_ response: RTSPResponse) {
+        guard response.headers["cseq"] == String(sequence), let request = pendingRequest else { return }
+        pendingRequest = nil
+        if response.statusCode == 401, !request.retried,
+           let challenge = response.headers["www-authenticate"],
+           let credentials = URLComponents(url: url, resolvingAgainstBaseURL: false),
+           let user = credentials.user, let password = credentials.password,
+           let authentication = RTSPAuthentication(challenge: challenge, user: user, password: password) {
+            self.authentication = authentication
+            send(request.method, uri: request.uri, headers: request.headers, retried: true)
+            return
+        }
         guard (200..<300).contains(response.statusCode) else {
             if response.statusCode == 401 || response.statusCode == 403 {
                 fail(.unauthorized)
@@ -200,8 +217,10 @@ final class RTSPIngest: CameraIngest {
         }
     }
 
-    private func send(_ method: String, uri: URL, headers: [String: String] = [:]) {
+    private func send(_ method: String, uri: URL, headers: [String: String] = [:], retried: Bool = false) {
         guard let connection else { return }
+        guard pendingRequest == nil else { return }
+        pendingRequest = (method, uri, headers, retried)
         sequence += 1
         var fields = headers
         fields["CSeq"] = String(sequence)
@@ -209,15 +228,18 @@ final class RTSPIngest: CameraIngest {
         if let sessionID {
             fields["Session"] = sessionID
         }
-        if let authorization {
+        if let authorization = authentication?.authorization(method: method, uri: uri.absoluteString) {
             fields["Authorization"] = authorization
         }
         let headerLines = fields.map { "\($0.key): \($0.value)" }.sorted()
         let request = (["\(method) \(uri.absoluteString) RTSP/1.0"] + headerLines + ["", ""])
             .joined(separator: "\r\n")
-        connection.send(content: Data(request.utf8), completion: .contentProcessed { [weak self] error in
+        connection.send(content: Data(request.utf8), completion: .contentProcessed { [weak self, weak connection] error in
             guard error != nil else { return }
-            Task { @MainActor in self?.fail(.reconnecting) }
+            Task { @MainActor in
+                guard let self, let connection, self.connection === connection else { return }
+                self.fail(.reconnecting)
+            }
         })
     }
 
@@ -226,13 +248,6 @@ final class RTSPIngest: CameraIngest {
         components.user = nil
         components.password = nil
         return components.url ?? url
-    }
-
-    private var authorization: String? {
-        guard let components = URLComponents(url: url, resolvingAgainstBaseURL: false),
-              let user = components.user, let password = components.password,
-              let credentials = "\(user):\(password)".data(using: .utf8) else { return nil }
-        return "Basic \(credentials.base64EncodedString())"
     }
 
     private func startWatchdog() {
@@ -305,6 +320,77 @@ enum RTSPEvent: Equatable {
     case interleaved(channel: UInt8, packet: Data)
 }
 
+struct RTSPAuthentication {
+    private let user: String
+    private let password: String
+    private let fields: [String: String]
+    private let basic: Bool
+    private let cnonce: String
+    private var nonceCount = 0
+
+    init?(challenge: String, user: String, password: String, cnonce: String = UUID().uuidString) {
+        guard ![challenge, user, cnonce].contains(where: { $0.contains("\r") || $0.contains("\n") }) else { return nil }
+        let parts = challenge.split(separator: " ", maxSplits: 1)
+        guard let scheme = parts.first?.lowercased(), ["basic", "digest"].contains(scheme) else { return nil }
+        basic = scheme == "basic"
+        var fields = [String: String]()
+        if !basic {
+            guard parts.count == 2,
+                  let expression = try? NSRegularExpression(pattern: #"(\w+)\s*=\s*(?:"((?:\\.|[^"\\])*)"|([^,\s]+))"#) else { return nil }
+            let parameters = String(parts[1])
+            for match in expression.matches(in: parameters, range: NSRange(parameters.startIndex..., in: parameters)) {
+                guard let keyRange = Range(match.range(at: 1), in: parameters),
+                      let valueRange = Range(match.range(at: match.range(at: 2).location == NSNotFound ? 3 : 2), in: parameters) else { continue }
+                fields[String(parameters[keyRange]).lowercased()] = String(parameters[valueRange])
+                    .replacingOccurrences(of: #"\""#, with: "\"")
+                    .replacingOccurrences(of: #"\\"#, with: #"\"#)
+            }
+            guard fields["realm"] != nil, let nonce = fields["nonce"], !nonce.isEmpty,
+                  ["md5", "md5-sess"].contains(fields["algorithm", default: "MD5"].lowercased()) else { return nil }
+            if let qop = fields["qop"] {
+                guard qop.split(separator: ",").contains(where: { $0.trimmingCharacters(in: .whitespaces) == "auth" }) else { return nil }
+            }
+        }
+        self.fields = fields
+        self.user = user
+        self.password = password
+        self.cnonce = cnonce
+    }
+
+    mutating func authorization(method: String, uri: String) -> String {
+        if basic { return "Basic \(Data("\(user):\(password)".utf8).base64EncodedString())" }
+        let realm = fields["realm", default: ""]
+        let nonce = fields["nonce", default: ""]
+        let algorithm = fields["algorithm", default: "MD5"]
+        nonceCount += 1
+        let nc = String(format: "%08x", nonceCount)
+        var ha1 = Self.md5("\(user):\(realm):\(password)")
+        if algorithm.lowercased() == "md5-sess" { ha1 = Self.md5("\(ha1):\(nonce):\(cnonce)") }
+        let ha2 = Self.md5("\(method):\(uri)")
+        let response = fields["qop"] == nil
+            ? Self.md5("\(ha1):\(nonce):\(ha2)")
+            : Self.md5("\(ha1):\(nonce):\(nc):\(cnonce):auth:\(ha2)")
+        var values = ["username=\(Self.quoted(user))", "realm=\(Self.quoted(realm))",
+                      "nonce=\(Self.quoted(nonce))", "uri=\(Self.quoted(uri))",
+                      "response=\(Self.quoted(response))", "algorithm=\(algorithm)"]
+        if let opaque = fields["opaque"] { values.append("opaque=\(Self.quoted(opaque))") }
+        if fields["qop"] != nil { values += ["qop=auth", "nc=\(nc)"] }
+        if fields["qop"] != nil || algorithm.lowercased() == "md5-sess" {
+            values.append("cnonce=\(Self.quoted(cnonce))")
+        }
+        return "Digest " + values.joined(separator: ", ")
+    }
+
+    private static func md5(_ value: String) -> String {
+        Insecure.MD5.hash(data: Data(value.utf8)).map { String(format: "%02x", $0) }.joined()
+    }
+
+    private static func quoted(_ value: String) -> String {
+        "\"" + value.replacingOccurrences(of: "\\", with: "\\\\")
+            .replacingOccurrences(of: "\"", with: "\\\"") + "\""
+    }
+}
+
 struct RTSPMessageParser {
     private static let maximumBufferedBytes = 1024 * 1024
     private var buffer = Data()
@@ -313,21 +399,23 @@ struct RTSPMessageParser {
         buffer.append(data)
         guard buffer.count <= Self.maximumBufferedBytes else { throw RTSPError.invalidMessage }
         var events = [RTSPEvent]()
-        while !buffer.isEmpty {
-            if buffer[0] == 0x24 {
-                guard buffer.count >= 4 else { break }
-                let size = Int(buffer.integer(at: 2, count: 2))
-                guard buffer.count >= size + 4 else { break }
+        var offset = 0
+        defer { if offset > 0 { buffer = Data(buffer.dropFirst(offset)) } }
+        while offset < buffer.count {
+            if buffer[offset] == 0x24 {
+                guard buffer.count - offset >= 4 else { break }
+                let size = Int(buffer.integer(at: offset + 2, count: 2))
+                guard buffer.count - offset >= size + 4 else { break }
                 events.append(.interleaved(
-                    channel: buffer[1],
-                    packet: buffer.subdata(in: 4..<(size + 4))
+                    channel: buffer[offset + 1],
+                    packet: buffer.subdata(in: (offset + 4)..<(offset + size + 4))
                 ))
-                buffer = Data(buffer.dropFirst(size + 4))
+                offset += size + 4
                 continue
             }
 
-            guard let headerEnd = buffer.range(of: Data("\r\n\r\n".utf8)) else { break }
-            let headerData = buffer[..<headerEnd.lowerBound]
+            guard let headerEnd = buffer.range(of: Data("\r\n\r\n".utf8), in: offset..<buffer.count) else { break }
+            let headerData = buffer[offset..<headerEnd.lowerBound]
             guard let header = String(data: headerData, encoding: .utf8) else {
                 throw RTSPError.invalidMessage
             }
@@ -342,8 +430,12 @@ struct RTSPMessageParser {
                 let value = line[line.index(after: separator)...].trimmingCharacters(in: .whitespaces)
                 return (name, value)
             }
-            let headers = fields.reduce(into: [String: String]()) { $0[$1.0] = $1.1 }
-            guard let contentLength = Int(headers["content-length"] ?? "0"), contentLength >= 0 else {
+            let headers = fields.reduce(into: [String: String]()) { result, field in
+                if field.0 == "www-authenticate", result[field.0]?.lowercased().hasPrefix("digest ") == true { return }
+                result[field.0] = field.1
+            }
+            guard let contentLength = Int(headers["content-length"] ?? "0"),
+                  contentLength >= 0, contentLength <= Self.maximumBufferedBytes else {
                 throw RTSPError.invalidMessage
             }
             let bodyStart = headerEnd.upperBound
@@ -354,7 +446,7 @@ struct RTSPMessageParser {
                 headers: headers,
                 body: body
             )))
-            buffer = Data(buffer.dropFirst(bodyStart + contentLength))
+            offset = bodyStart + contentLength
         }
         return events
     }

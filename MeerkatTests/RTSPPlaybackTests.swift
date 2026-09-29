@@ -4,6 +4,42 @@ import Testing
 @testable import Meerkat
 
 struct RTSPPlaybackTests {
+    @MainActor
+    @Test func invalidSavedPortFailsWithoutTrapping() throws {
+        let ingest = RTSPIngest(url: URL(string: "rtsp://127.0.0.1:99999/live0")!)
+        let display = AVSampleBufferDisplayLayer()
+        var state = PlaybackState.connecting
+        try ingest.attachDisplay(display) { state = $0 }
+        defer { ingest.stop() }
+        ingest.start()
+        #expect(state == .unsupported)
+    }
+
+    @Test func digestMatchesRFC2617VectorAndIncrementsNonceCount() throws {
+        var auth = try #require(RTSPAuthentication(
+            challenge: #"Digest realm="testrealm@host.com", qop="auth,auth-int", nonce="dcd98b7102dd2f0e8b11d0f600bfb0c093", opaque="5ccc069c403ebaf9f0171e9517f40e41""#,
+            user: "Mufasa", password: "Circle Of Life", cnonce: "0a4f113b"
+        ))
+        let header = auth.authorization(method: "GET", uri: "/dir/index.html")
+        #expect(header.contains(#"response="6629fae49393a05397450978507c4ef1""#))
+        #expect(header.contains("nc=00000001"))
+        #expect(auth.authorization(method: "SETUP", uri: "/trackID=0").contains("nc=00000002"))
+    }
+
+    @Test func rejectsUnsupportedDigestChallenges() {
+        for challenge in [#"Digest realm="camera""#, #"Digest realm="camera", nonce="n", qop="auth-int""#,
+                          #"Digest realm="camera", nonce="n", algorithm=SHA-256"#] {
+            #expect(RTSPAuthentication(challenge: challenge, user: "admin", password: "test") == nil)
+        }
+    }
+
+    @Test func parserRejectsOversizedContentLengthWithoutOverflow() {
+        var parser = RTSPMessageParser()
+        #expect(throws: RTSPError.self) {
+            try parser.append(Data("RTSP/1.0 200 OK\r\nContent-Length: \(Int.max)\r\n\r\n".utf8))
+        }
+    }
+
     private let sps = Data([0x67, 0x42, 0xc0, 0x16, 0xd9, 0, 0xa0, 0x2f, 0xf9, 0x70, 0x11,
                             0, 0, 3, 0, 1, 0, 0, 3, 0, 0x14, 0x0f, 0x16, 0x2e, 0x48])
     private let pps = Data([0x68, 0xcb, 0x83, 0xcb, 0x20])
@@ -93,6 +129,11 @@ struct RTSPPlaybackTests {
 }
 
 @MainActor
+@Suite(.enabled(
+    if: ProcessInfo.processInfo.environment["MEERKAT_RTSP_TEST_URLS"] != nil
+        || FileManager.default.fileExists(atPath: "/tmp/meerkat-rtsp-test-urls"),
+    "Requires running mocks configured through MEERKAT_RTSP_TEST_URLS or /tmp/meerkat-rtsp-test-urls"
+))
 struct RTSPMockIntegrationTests {
     @Test func playsConfiguredMockServers() async throws {
         let configuredURLs = ProcessInfo.processInfo.environment["MEERKAT_RTSP_TEST_URLS"]
@@ -119,6 +160,18 @@ struct RTSPMockIntegrationTests {
             ingest.stop()
 
             try await CameraEndpointCheck(url: url).check()
+
+            var invalidCredentials = try #require(URLComponents(url: url, resolvingAgainstBaseURL: false))
+            invalidCredentials.password = "incorrect-fixture-password"
+            let rejected = RTSPIngest(url: try #require(invalidCredentials.url))
+            var rejectedStates = [PlaybackState]()
+            let rejectedLayer = AVSampleBufferDisplayLayer()
+            try rejected.attachDisplay(rejectedLayer) { rejectedStates.append($0) }
+            rejected.start()
+            defer { rejected.stop() }
+            await waitUntilRTSP { rejectedStates.contains(.unauthorized) }
+            #expect(rejectedStates.contains(.unauthorized))
+            rejected.stop()
         }
     }
 

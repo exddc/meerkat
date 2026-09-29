@@ -1,151 +1,135 @@
 import asyncio
-import base64
-from collections.abc import AsyncIterator
-from contextlib import asynccontextmanager
+import shutil
+import socket
 
 import pytest
 
-from camera_mock_server import Vendor
-from camera_mock_server.config import RTSP_PATHS
-from camera_mock_server.rtsp import RTSPConfiguration, create_rtsp_server
-
-AUTHORIZATION = "Basic " + base64.b64encode(b"admin:meerkat").decode()
+from camera_mock_server.config import RTSP_PATHS, Vendor
+from camera_mock_server.rtsp import RTSPConfiguration, camera_server, server_config
 
 
-@asynccontextmanager
-async def rtsp_client(
-    configuration: RTSPConfiguration,
-) -> AsyncIterator[tuple[asyncio.StreamReader, asyncio.StreamWriter, str]]:
-    server = await create_rtsp_server("127.0.0.1", 0, configuration)
-    port = server.sockets[0].getsockname()[1]
-    reader, writer = await asyncio.open_connection("127.0.0.1", port)
+def test_config_separates_publish_and_read_permissions() -> None:
+    config = server_config("127.0.0.1", 8554, RTSPConfiguration(("/live0",), auth_method="digest"))
+    assert config["rtspAuthMethods"] == ["digest"]
+    publisher, reader = config["authInternalUsers"]
+    assert publisher["ips"] == ["127.0.0.1", "::1"]
+    assert publisher["permissions"] == [{"action": "publish", "path": "live0"}]
+    assert reader["permissions"] == [{"action": "read", "path": "live0"}]
+    assert config["paths"] == {"live0": {"source": "publisher"}}
+    assert not any(config[key] for key in ("hls", "rtmp", "webrtc", "srt", "moq"))
+
+
+def test_no_auth_and_ipv6_configuration() -> None:
+    config = server_config("::1", 8555, RTSPConfiguration(("/stream1",), require_auth=False))
+    assert config["rtspAddress"] == "[::1]:8555"
+    assert config["authInternalUsers"][1]["user"] == "any"
+
+
+@pytest.mark.parametrize("port", [0, -1, 65536])
+def test_invalid_port(port: int) -> None:
+    with pytest.raises(ValueError, match="Port"):
+        server_config("127.0.0.1", port, RTSPConfiguration(("/live0",)))
+
+
+@pytest.mark.anyio
+async def test_missing_binary_is_actionable(monkeypatch: pytest.MonkeyPatch) -> None:
+    monkeypatch.setattr(shutil, "which", lambda name: None)
+    with pytest.raises(RuntimeError, match="Missing executable.*mediamtx.*ffmpeg"):
+        async with camera_server("127.0.0.1", 8554, RTSPConfiguration(("/live0",))):
+            pytest.fail("Server must not start")
+
+
+async def decode(url: str) -> int:
+    process = await asyncio.create_subprocess_exec(
+        "ffmpeg",
+        "-nostdin",
+        "-hide_banner",
+        "-loglevel",
+        "error",
+        "-rtsp_transport",
+        "tcp",
+        "-i",
+        url,
+        "-frames:v",
+        "2",
+        "-f",
+        "null",
+        "-",
+        stdout=asyncio.subprocess.DEVNULL,
+        stderr=asyncio.subprocess.DEVNULL,
+    )
     try:
-        yield reader, writer, f"rtsp://127.0.0.1:{port}"
+        return await asyncio.wait_for(process.wait(), 8)
     finally:
-        writer.close()
-        await writer.wait_closed()
-        server.close()
-        await server.wait_closed()
+        if process.returncode is None:
+            process.kill()
+            await process.wait()
 
 
-async def rtsp_request(
-    reader: asyncio.StreamReader,
-    writer: asyncio.StreamWriter,
-    method: str,
-    uri: str,
-    cseq: int,
-    headers: dict[str, str] | None = None,
-) -> tuple[str, bytes]:
-    fields = {"CSeq": str(cseq), **(headers or {})}
-    request = [f"{method} {uri} RTSP/1.0", *(f"{key}: {value}" for key, value in fields.items())]
-    writer.write(("\r\n".join(request) + "\r\n\r\n").encode())
-    await writer.drain()
-    head = (await reader.readuntil(b"\r\n\r\n")).decode()
-    response_headers = {
-        key.lower(): value.strip()
-        for line in head.split("\r\n")[1:]
-        if ":" in line
-        for key, value in [line.split(":", 1)]
-    }
-    body = await reader.readexactly(int(response_headers.get("content-length", "0")))
-    return head, body
-
-
+@pytest.mark.skipif(
+    not shutil.which("mediamtx") or not shutil.which("ffmpeg"),
+    reason="Integration requires MediaMTX and FFmpeg on PATH",
+)
 @pytest.mark.parametrize("vendor", [Vendor.TAPO, Vendor.EUFY])
+@pytest.mark.parametrize("auth_method", ["basic", "digest"])
 @pytest.mark.anyio
-async def test_home_rtsp_streams_on_negotiated_channel(vendor: Vendor) -> None:
-    paths = RTSP_PATHS[vendor]
-    async with rtsp_client(RTSPConfiguration(paths)) as (reader, writer, base):
-        uri = f"{base}{paths[0]}"
-        head, _ = await rtsp_request(reader, writer, "DESCRIBE", uri, 1)
-        assert head.startswith("RTSP/1.0 401")
-
-        head, body = await rtsp_request(
-            reader, writer, "DESCRIBE", uri, 2, {"Authorization": AUTHORIZATION}
-        )
-        assert head.startswith("RTSP/1.0 200")
-        assert b"H264/90000" in body
-        assert b"profile-level-id=42C016" in body
-
-        head, _ = await rtsp_request(
-            reader,
-            writer,
-            "SETUP",
-            f"{uri}/trackID=0",
-            3,
-            {"Authorization": AUTHORIZATION, "Transport": "RTP/AVP;unicast;client_port=5000-5001"},
-        )
-        assert head.startswith("RTSP/1.0 461")
-
-        head, _ = await rtsp_request(
-            reader,
-            writer,
-            "SETUP",
-            f"{uri}/trackID=0",
-            4,
-            {"Authorization": AUTHORIZATION, "Transport": "RTP/AVP/TCP;unicast;interleaved=2-3"},
-        )
-        assert head.startswith("RTSP/1.0 200")
-        assert "interleaved=2-3" in head
-
-        head, _ = await rtsp_request(
-            reader,
-            writer,
-            "PLAY",
-            uri,
-            5,
-            {"Authorization": AUTHORIZATION, "Session": "meerkat"},
-        )
-        assert head.startswith("RTSP/1.0 200")
-        frame = await reader.readexactly(4)
-        packet = await reader.readexactly(int.from_bytes(frame[2:4]))
-
-        assert frame[:2] == b"$\x02"
-        assert packet[0] >> 6 == 2
-        assert packet[1] & 0x7F == 96
+async def test_real_streams_authentication_and_cleanup(vendor: Vendor, auth_method: str) -> None:
+    with socket.socket() as reservation:
+        reservation.bind(("127.0.0.1", 0))
+        port = reservation.getsockname()[1]
+    configuration = RTSPConfiguration(RTSP_PATHS[vendor], auth_method=auth_method)
+    async with camera_server("127.0.0.1", port, configuration) as processes:
+        for path in configuration.paths:
+            async with asyncio.timeout(15):
+                while await decode(f"rtsp://admin:meerkat@127.0.0.1:{port}{path}") != 0:
+                    assert all(process.returncode is None for process in processes)
+                    await asyncio.sleep(0.1)
+        assert await decode(f"rtsp://admin:wrong@127.0.0.1:{port}{configuration.paths[0]}") != 0
+        assert await decode(f"rtsp://admin:meerkat@127.0.0.1:{port}/unknown") != 0
+    assert all(process.returncode is not None for process in processes)
 
 
+@pytest.mark.skipif(
+    not shutil.which("mediamtx") or not shutil.which("ffmpeg"),
+    reason="Integration requires MediaMTX and FFmpeg on PATH",
+)
 @pytest.mark.anyio
-async def test_setup_picks_tcp_from_transport_list() -> None:
-    paths = RTSP_PATHS[Vendor.EUFY]
-    async with rtsp_client(RTSPConfiguration(paths, require_auth=False)) as (reader, writer, base):
-        transport = "RTP/AVP;unicast;client_port=5000-5001,RTP/AVP/TCP;unicast;interleaved=0-1"
-        head, _ = await rtsp_request(
-            reader, writer, "SETUP", f"{base}{paths[0]}/trackID=0", 1, {"Transport": transport}
-        )
-
-        assert head.startswith("RTSP/1.0 200")
-        assert "Transport: RTP/AVP/TCP;unicast;interleaved=0-1" in head
+async def test_startup_failure_does_not_leave_children() -> None:
+    with socket.socket() as occupied:
+        occupied.bind(("127.0.0.1", 0))
+        port = occupied.getsockname()[1]
+        occupied.listen()
+        with pytest.raises(OSError):
+            async with camera_server("127.0.0.1", port, RTSPConfiguration(("/live0",))):
+                pytest.fail("Occupied port must fail startup")
 
 
+@pytest.mark.skipif(
+    not shutil.which("mediamtx") or not shutil.which("ffmpeg"),
+    reason="Integration requires MediaMTX and FFmpeg on PATH",
+)
 @pytest.mark.anyio
-async def test_tapo_rejects_eufy_path() -> None:
-    configuration = RTSPConfiguration(RTSP_PATHS[Vendor.TAPO], require_auth=False)
-    async with rtsp_client(configuration) as (reader, writer, base):
-        head, _ = await rtsp_request(reader, writer, "DESCRIBE", f"{base}/live0", 1)
-        assert head.startswith("RTSP/1.0 404")
-        head, _ = await rtsp_request(reader, writer, "DESCRIBE", f"{base}/stream2", 2)
-        assert head.startswith("RTSP/1.0 200")
+async def test_cancellation_stops_every_child() -> None:
+    with socket.socket() as reservation:
+        reservation.bind(("127.0.0.1", 0))
+        port = reservation.getsockname()[1]
+    started = asyncio.Event()
+    children: list[asyncio.subprocess.Process] = []
 
+    async def run() -> None:
+        async with camera_server(
+            "127.0.0.1", port, RTSPConfiguration(("/live0",), require_auth=False)
+        ) as processes:
+            children.extend(processes)
+            started.set()
+            await asyncio.Event().wait()
 
-@pytest.mark.anyio
-async def test_rejects_non_ascii_credentials() -> None:
-    paths = RTSP_PATHS[Vendor.EUFY]
-    authorization = "Basic " + base64.b64encode("admin:mëërkat".encode()).decode()
-    async with rtsp_client(RTSPConfiguration(paths)) as (reader, writer, base):
-        head, _ = await rtsp_request(
-            reader, writer, "DESCRIBE", f"{base}{paths[0]}", 1, {"Authorization": authorization}
-        )
-
-        assert head.startswith("RTSP/1.0 401")
-
-
-@pytest.mark.anyio
-async def test_rejects_invalid_content_length() -> None:
-    paths = RTSP_PATHS[Vendor.EUFY]
-    async with rtsp_client(RTSPConfiguration(paths, require_auth=False)) as (reader, writer, base):
-        head, _ = await rtsp_request(
-            reader, writer, "DESCRIBE", f"{base}{paths[0]}", 1, {"Content-Length": "abc"}
-        )
-
-        assert head.startswith("RTSP/1.0 400")
+    task = asyncio.create_task(run())
+    try:
+        await asyncio.wait_for(started.wait(), 10)
+    finally:
+        task.cancel()
+        with pytest.raises(asyncio.CancelledError):
+            await task
+    assert children
+    assert all(child.returncode is not None for child in children)

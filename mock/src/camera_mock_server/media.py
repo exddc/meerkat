@@ -48,7 +48,6 @@ JPEG_FIXTURE = base64.b64decode(
 )
 
 FLV_VIDEO = 9
-AVC_SEQUENCE_HEADER = 0
 AVC_NALU = 1
 
 
@@ -89,45 +88,6 @@ def _video_tags(packet_type: int) -> tuple[FLVTag, ...]:
 def frame_step() -> int:
     timestamps = [tag.timestamp for tag in _video_tags(AVC_NALU)]
     return max(40, timestamps[-1] - timestamps[-2] if len(timestamps) > 1 else 200)
-
-
-def _nal_units(data: bytes, length_size: int) -> tuple[bytes, ...]:
-    nals: list[bytes] = []
-    position = 0
-    while position + length_size <= len(data):
-        nal_length = int.from_bytes(data[position : position + length_size])
-        position += length_size
-        nal = data[position : position + nal_length]
-        if len(nal) != nal_length:
-            break
-        nals.append(nal)
-        position += nal_length
-    return tuple(nals)
-
-
-@cache
-def h264_media() -> tuple[bytes, bytes, tuple[tuple[int, tuple[bytes, ...]], ...]]:
-    headers = _video_tags(AVC_SEQUENCE_HEADER)
-    if not headers:
-        raise ValueError("The bundled FLV fixture does not contain H.264 media")
-    configuration = headers[0].payload[5:]
-    length_size = (configuration[4] & 3) + 1
-    position = 6
-    sps_length = int.from_bytes(configuration[position : position + 2])
-    position += 2
-    sps = configuration[position : position + sps_length]
-    position += sps_length + 1
-    pps_length = int.from_bytes(configuration[position : position + 2])
-    position += 2
-    pps = configuration[position : position + pps_length]
-    frames = tuple(
-        (tag.timestamp, nals)
-        for tag in _video_tags(AVC_NALU)
-        if (nals := _nal_units(tag.payload[5:], length_size))
-    )
-    if not sps or not pps or not frames:
-        raise ValueError("The bundled FLV fixture does not contain H.264 media")
-    return sps, pps, frames
 
 
 def _timestamped(tag: bytes, timestamp: int) -> bytes:
