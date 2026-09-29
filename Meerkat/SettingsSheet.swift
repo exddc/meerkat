@@ -38,6 +38,8 @@ struct SettingsSheet: View {
                         ForEach(cameras) { camera in
                             CameraRow(camera: camera) {
                                 cameraPendingRemoval = camera
+                            } onDuplicate: {
+                                duplicate(camera)
                             } onChange: {
                                 scheduleSave()
                             } onFlush: {
@@ -265,6 +267,12 @@ struct SettingsSheet: View {
         saveChanges()
     }
 
+    private func duplicate(_ camera: Camera) {
+        flushPendingSave()
+        modelContext.insert(camera.duplicate(among: cameras))
+        saveChanges()
+    }
+
     private func displayName(for camera: Camera) -> String {
         camera.name.isEmpty ? "this camera" : "“\(camera.name)”"
     }
@@ -380,6 +388,7 @@ private struct SettingsSurface<Content: View>: View {
 private struct CameraRow: View {
     @Bindable var camera: Camera
     var onRemove: () -> Void
+    var onDuplicate: () -> Void
     var onChange: () -> Void
     var onFlush: () -> Void
     @StateObject private var editor: CameraConfigurationEditor
@@ -388,11 +397,13 @@ private struct CameraRow: View {
     init(
         camera: Camera,
         onRemove: @escaping () -> Void,
+        onDuplicate: @escaping () -> Void,
         onChange: @escaping () -> Void,
         onFlush: @escaping () -> Void
     ) {
         self.camera = camera
         self.onRemove = onRemove
+        self.onDuplicate = onDuplicate
         self.onChange = onChange
         self.onFlush = onFlush
         _editor = StateObject(wrappedValue: CameraConfigurationEditor(camera: camera))
@@ -434,6 +445,12 @@ private struct CameraRow: View {
                         .onSubmit { addressFocused = false }
                         .textFieldStyle(.roundedBorder)
                         .accessibilityIdentifier("\(camera.cameraID.uuidString)-url")
+
+                    if camera.requiresAddressChange == true {
+                        Text("Change the address to add this camera to the grid")
+                            .font(.caption)
+                            .foregroundStyle(.secondary)
+                    }
                 }
 
                 Divider()
@@ -478,6 +495,9 @@ private struct CameraRow: View {
         .onChange(of: camera.authenticationRequired) {
             onChange()
         }
+        .onChange(of: camera.requiresAddressChange) {
+            onChange()
+        }
         .onChange(of: camera.isVisible) {
             onChange()
         }
@@ -513,6 +533,18 @@ private struct CameraRow: View {
             .help(camera.isVisible ? "Hide camera" : "Show camera")
             .accessibilityLabel(camera.isVisible ? "Hide camera" : "Show camera")
             .accessibilityIdentifier("\(camera.cameraID.uuidString)-visibility")
+
+            Button {
+                editor.flush()
+                onDuplicate()
+            } label: {
+                Image(systemName: "square.on.square")
+                    .frame(width: 24, height: 24)
+            }
+            .buttonStyle(.borderless)
+            .help("Duplicate camera")
+            .accessibilityLabel("Duplicate camera")
+            .accessibilityIdentifier("\(camera.cameraID.uuidString)-duplicate")
 
             Button(role: .destructive, action: onRemove) {
                 Image(systemName: "trash")

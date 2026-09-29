@@ -16,7 +16,7 @@ struct MenuBarPanel: View {
 
     private let playbackEnabled: Bool
     private var visibleCameras: [Camera] {
-        cameras.filter(\.isVisible)
+        cameras.filter { $0.isVisible && $0.requiresAddressChange != true }
     }
 
     private var cameraPanelWidth: CGFloat {
@@ -150,7 +150,7 @@ struct MenuBarPanel: View {
                         Text(AppInfo.name)
                             .font(.headline)
 
-                        Text(cameras.isEmpty ? "Add a camera in Settings" : "Show a camera in Settings")
+                        Text(emptyCameraMessage)
                             .font(.subheadline)
                             .foregroundStyle(.secondary)
                     }
@@ -176,6 +176,14 @@ struct MenuBarPanel: View {
             .allowsHitTesting(expandedCameraID == nil)
             .accessibilityHidden(expandedCameraID != nil)
         }
+    }
+
+    private var emptyCameraMessage: String {
+        if cameras.isEmpty { return "Add a camera in Settings" }
+        if cameras.contains(where: { $0.requiresAddressChange == true }) {
+            return "Finish setting up a camera in Settings"
+        }
+        return "Show a camera in Settings"
     }
 
     private func interactiveTile(_ camera: Camera) -> some View {

@@ -46,6 +46,49 @@ struct CameraTests {
         #expect(camera.isVisible)
     }
 
+    @Test
+    func duplicateCopiesConnectionSettingsWithUniqueIdentityAndName() {
+        let source = Camera(
+            name: "Front Door",
+            streamURLString: "rtsp://viewer:secret@192.168.1.20/live",
+            sortIndex: 0,
+            isVisible: false
+        )
+        source.authenticationRequired = true
+        let other = Camera(name: "Front Door 2", streamURLString: "", sortIndex: 4)
+
+        let copy = source.duplicate(among: [source, other])
+
+        #expect(copy.name == "Front Door 3")
+        #expect(copy.streamURLString == source.streamURLString)
+        #expect(copy.authenticationRequired == source.authenticationRequired)
+        #expect(copy.isVisible == source.isVisible)
+        #expect(copy.cameraID != source.cameraID)
+        #expect(copy.sortIndex == 5)
+        #expect(copy.requiresAddressChange == true)
+        #expect(copy.playableStreamURL == nil)
+        #expect(CameraIngestConfiguration(camera: copy).url == nil)
+        #expect(CameraInput(
+            playbackURLString: copy.streamURLString,
+            authenticationRequired: copy.authenticationRequired
+        ).password == "secret")
+    }
+
+    @Test
+    func duplicateContinuesNumberingFromNumberedCamera() {
+        let source = Camera(name: "Camera 3", streamURLString: "https://camera.test/live")
+        let existing = Camera(name: "Camera 4", streamURLString: "")
+
+        #expect(source.duplicate(among: [source, existing]).name == "Camera 5")
+    }
+
+    @Test
+    func duplicateGivesUnnamedCameraAName() {
+        let source = Camera(name: "", streamURLString: "https://camera.test/live")
+
+        #expect(source.duplicate(among: [source]).name == "Camera 2")
+    }
+
 }
 
 @MainActor
@@ -86,6 +129,7 @@ struct CameraPersistenceTests {
             camera.name = "Back Garden"
             camera.streamURLString = "https://camera.test/updated"
             camera.isVisible = false
+            camera.requiresAddressChange = true
             try Persistence.save(container.mainContext)
         }
 
@@ -99,6 +143,7 @@ struct CameraPersistenceTests {
         #expect(camera.name == "Back Garden")
         #expect(camera.streamURLString == "https://camera.test/updated")
         #expect(!camera.isVisible)
+        #expect(camera.requiresAddressChange == true)
     }
 }
 
@@ -294,6 +339,54 @@ struct CameraInputTests {
 
 @MainActor
 struct CameraConfigurationEditorTests {
+    @Test func pendingDuplicateDoesNotBlockSourceAndWaitsForUniqueAddress() async throws {
+        let container = Persistence.preview(cameras: [])
+        let source = Camera(
+            name: "Front Door",
+            streamURLString: "rtsp://viewer:secret@192.0.2.10/stream1"
+        )
+        source.authenticationRequired = true
+        container.mainContext.insert(source)
+        let duplicate = source.duplicate(among: [source])
+        container.mainContext.insert(duplicate)
+        try container.mainContext.save()
+
+        let sourceEditor = CameraConfigurationEditor(
+            camera: source,
+            debounceDuration: .zero,
+            endpointCheck: { _ in }
+        )
+        var sourceInput = sourceEditor.input
+        sourceInput.password = "updated"
+        sourceEditor.input = sourceInput
+        try await waitUntil { source.streamURLString.contains("updated") }
+        #expect(sourceEditor.endpointError == nil)
+        #expect(duplicate.requiresAddressChange == true)
+        #expect(duplicate.playableStreamURL == nil)
+
+        let duplicateEditor = CameraConfigurationEditor(
+            camera: duplicate,
+            debounceDuration: .zero,
+            endpointCheck: { _ in }
+        )
+        #expect(duplicateEditor.input.address == "rtsp://192.0.2.10/stream1")
+        #expect(duplicateEditor.input.username == "viewer")
+        #expect(duplicateEditor.input.password == "secret")
+
+        duplicateEditor.flush()
+        #expect(duplicate.requiresAddressChange == true)
+        #expect(duplicate.playableStreamURL == nil)
+
+        var duplicateInput = duplicateEditor.input
+        duplicateInput.address = "rtsp://192.0.2.11/stream1"
+        duplicateEditor.input = duplicateInput
+        try await waitUntil { duplicate.requiresAddressChange != true }
+
+        #expect(duplicate.playableStreamURL?.host == "192.0.2.11")
+        #expect(duplicate.streamURLString.contains("viewer:secret@"))
+        #expect(duplicateEditor.endpointError == nil)
+    }
+
     @Test func persistsAndValidatesOnlyCompleteCredentials() async throws {
         let camera = Camera(name: "Front Door", streamURLString: "https://old.test/live")
         camera.authenticationRequired = false

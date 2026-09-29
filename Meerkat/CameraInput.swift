@@ -265,11 +265,18 @@ final class CameraConfigurationEditor: ObservableObject {
     private func persist(_ input: CameraInput, url: URL) -> Bool {
         guard !camera.isDeleted,
               !requiresAttachedCamera || camera.modelContext != nil else { return false }
+        if camera.requiresAddressChange == true,
+           usedEndpointIdentities().contains(Self.endpointIdentity(for: url)) {
+            return false
+        }
         if camera.authenticationRequired != input.requiresAuthentication {
             camera.authenticationRequired = input.requiresAuthentication
         }
         if camera.streamURLString != url.absoluteString {
             camera.streamURLString = url.absoluteString
+        }
+        if camera.requiresAddressChange == true {
+            camera.requiresAddressChange = nil
         }
         return true
     }
