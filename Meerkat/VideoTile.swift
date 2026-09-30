@@ -26,7 +26,8 @@ struct VideoTile: View {
     }
 
     private var showsCameraLabel: Bool {
-        cameraLabelVisibility.isVisible(isHovering: isHovering)
+        !camera.name.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty
+            && cameraLabelVisibility.isVisible(isHovering: isHovering)
     }
 
     private var labelAnimation: Animation? {
