@@ -9,6 +9,7 @@ final class MeerkatApplicationDelegate: NSObject, NSApplicationDelegate {
 
     func applicationDidFinishLaunching(_ notification: Notification) {
         guard NSClassFromString("XCTestCase") == nil else { return }
+        UserDefaults.standard.removeObject(forKey: "menuBarPanelSize")
         if BackgroundStreaming.isEnabled() {
             ingestStore.synchronize(Persistence.cameraIngestConfigurations())
         }

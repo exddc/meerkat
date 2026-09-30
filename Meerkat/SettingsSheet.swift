@@ -10,7 +10,6 @@ struct SettingsSheet: View {
     @Environment(\.modelContext) private var modelContext
     @Query(sort: \Camera.sortIndex) private var cameras: [Camera]
     @AppStorage(AppInfo.cameraLabelVisibilityKey) private var cameraLabelVisibility = CameraLabelVisibility.always
-    @AppStorage(AppInfo.panelSizeKey) private var panelSize = MenuBarPanelSize.medium
     @AppStorage(BackgroundStreaming.enabledKey) private var backgroundStreamingEnabled = BackgroundStreaming.defaultEnabled
     @StateObject private var launchAtLoginController = LaunchAtLoginController()
     @State private var cameraPendingRemoval: Camera?
@@ -81,21 +80,6 @@ struct SettingsSheet: View {
                     ) {
                         SettingsSurface {
                             VStack(spacing: 10) {
-                                LabeledContent("Window size") {
-                                    Spacer()
-                                    Picker("Window size", selection: $panelSize) {
-                                        ForEach(MenuBarPanelSize.allCases, id: \.self) { size in
-                                            Text(size.title).tag(size)
-                                        }
-                                    }
-                                    .pickerStyle(.menu)
-                                    .labelsHidden()
-                                    .fixedSize()
-                                    .accessibilityIdentifier("settings-window-size")
-                                }
-
-                                Divider()
-
                                 LabeledContent("Show camera labels") {
                                     Spacer()
                                     Picker("Show camera labels", selection: $cameraLabelVisibility) {
