@@ -3,7 +3,7 @@ import SwiftUI
 
 enum CameraGridLayout {
     static let panelWidth: CGFloat = 420
-    static let panelHeight: CGFloat = 484
+    static let settingsHeight: CGFloat = 484
     static let spacing: CGFloat = 4
     static let padding: CGFloat = 4
 
@@ -13,6 +13,28 @@ enum CameraGridLayout {
 
     static func canExpandTiles(for cameraCount: Int) -> Bool {
         columnCount(for: cameraCount) > 1
+    }
+
+    static func gridHeight(width: CGFloat, cameraCount: Int) -> CGFloat {
+        guard cameraCount > 0 else { return 0 }
+        let columns = columnCount(for: cameraCount)
+        let rows = CGFloat((cameraCount + columns - 1) / columns)
+        let tileWidth = (
+            width - padding * 2 - spacing * CGFloat(columns - 1)
+        ) / CGFloat(columns)
+        return padding * 2
+            + tileWidth * 9 / 16 * rows
+            + spacing * (rows - 1)
+    }
+
+    static func panelHeight(for cameraCount: Int, isExpanded: Bool = false) -> CGFloat {
+        min(
+            settingsHeight,
+            gridHeight(
+                width: panelWidth,
+                cameraCount: isExpanded ? 1 : max(1, cameraCount)
+            )
+        )
     }
 }
 
@@ -38,7 +60,7 @@ struct CameraTileLayout: Layout {
             width: width,
             height: max(
                 viewportSize.height,
-                gridHeight(width: width, count: subviews.count)
+                CameraGridLayout.gridHeight(width: width, cameraCount: subviews.count)
             )
         )
     }
@@ -88,19 +110,5 @@ struct CameraTileLayout: Layout {
                 proposal: ProposedViewSize(tileSize)
             )
         }
-    }
-
-    private func gridHeight(width: CGFloat, count: Int) -> CGFloat {
-        guard count > 0 else { return 0 }
-        let columns = CameraGridLayout.columnCount(for: count)
-        let rows = CGFloat((count + columns - 1) / columns)
-        let tileWidth = (
-            width
-                - (CameraGridLayout.padding * 2)
-                - (CameraGridLayout.spacing * CGFloat(columns - 1))
-        ) / CGFloat(columns)
-        return (CameraGridLayout.padding * 2)
-            + (tileWidth * 9 / 16 * rows)
-            + (CameraGridLayout.spacing * (rows - 1))
     }
 }

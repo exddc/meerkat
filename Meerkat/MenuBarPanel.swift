@@ -33,22 +33,29 @@ struct MenuBarPanel: View {
         visibleCameras.map(CameraIngestConfiguration.init)
     }
 
+    private var cameraGridHeight: CGFloat {
+        CameraGridLayout.panelHeight(
+            for: visibleCameras.count,
+            isExpanded: expandedCameraID != nil
+        )
+    }
+
     var body: some View {
         HStack(alignment: .top, spacing: 0) {
             cameraGrid
-                .frame(width: CameraGridLayout.panelWidth, height: CameraGridLayout.panelHeight)
+                .frame(width: CameraGridLayout.panelWidth, height: cameraGridHeight)
 
             SettingsSheet(
                 onBack: { setShowsSettings(false) },
                 canCheckForUpdates: updater.canCheckForUpdates,
                 onCheckForUpdates: updater.checkForUpdates
             )
-                .frame(width: CameraGridLayout.panelWidth, height: CameraGridLayout.panelHeight)
+                .frame(width: CameraGridLayout.panelWidth, height: CameraGridLayout.settingsHeight)
         }
         .offset(x: showsSettings ? -CameraGridLayout.panelWidth : 0)
         .frame(
             width: CameraGridLayout.panelWidth,
-            height: CameraGridLayout.panelHeight,
+            height: showsSettings ? CameraGridLayout.settingsHeight : cameraGridHeight,
             alignment: .topLeading
         )
         .clipped()
@@ -59,6 +66,11 @@ struct MenuBarPanel: View {
             setPanelVisibility(true)
         }
         .onChange(of: ingestConfigurations) {
+            if let expandedCameraID,
+               !visibleCameras.contains(where: { $0.cameraID == expandedCameraID })
+                || !CameraGridLayout.canExpandTiles(for: visibleCameras.count) {
+                self.expandedCameraID = nil
+            }
             synchronizeIngests()
         }
         .onChange(of: backgroundStreamingEnabled) {
