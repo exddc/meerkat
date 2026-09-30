@@ -54,8 +54,8 @@ final class MenuBarInteractionTests: XCTestCase {
     }
 
     @MainActor
-    func testSmallPanelShowsCameraColumn() {
-        let app = launchApp(panelSize: "small")
+    func testPanelKeepsFixedSizeAcrossCameraCountsAndSettings() {
+        let app = launchApp()
         defer { app.terminate() }
 
         let statusItem = app.menuBars.statusItems["Meerkat"]
@@ -64,20 +64,26 @@ final class MenuBarInteractionTests: XCTestCase {
 
         let settings = app.buttons["settings-button"]
         XCTAssertTrue(settings.waitForExistence(timeout: 5))
-        settings.click()
-        resetCameras(in: app, count: 3)
-        app.buttons["settings-back"].click()
+        let panel = app.dialogs.firstMatch
+        let initialFrame = panel.frame
+        XCTAssertEqual(initialFrame.width, 420, accuracy: 1)
+        XCTAssertEqual(initialFrame.height, 484, accuracy: 1)
 
-        let tiles = app.buttons.matching(
-            NSPredicate(format: "identifier ENDSWITH '-tile'")
-        )
-        XCTAssertTrue(tiles.firstMatch.waitForExistence(timeout: 5))
-        XCTAssertEqual(tiles.count, 3)
+        for count in [0, 1, 2, 5] {
+            settings.click()
+            XCTAssertTrue(app.buttons["settings-back"].waitForExistence(timeout: 5))
+            resetCameras(in: app, count: count)
+            XCTAssertEqual(panel.frame, initialFrame)
+            app.buttons["settings-back"].click()
+            XCTAssertTrue(settings.waitForExistence(timeout: 5))
+            XCTAssertEqual(panel.frame, initialFrame)
 
-        let tileFrames = tiles.allElementsBoundByIndex.map(\.frame)
-        XCTAssertEqual(tileFrames[0].minX, tileFrames[1].minX, accuracy: 1)
-        XCTAssertEqual(tileFrames[1].minX, tileFrames[2].minX, accuracy: 1)
-        addScreenshot(named: "TW-373 Small Panel")
+            let tiles = app.buttons.matching(
+                NSPredicate(format: "identifier ENDSWITH '-tile'")
+            )
+            XCTAssertEqual(tiles.count, count)
+        }
+        addScreenshot(named: "Fixed Panel")
     }
 
     @MainActor
@@ -121,16 +127,11 @@ final class MenuBarInteractionTests: XCTestCase {
         let settings = app.buttons["settings-button"]
         XCTAssertTrue(settings.waitForExistence(timeout: 5))
         settings.click()
+        resetCameras(in: app, count: 0)
         XCTAssertTrue(app.staticTexts["settings-title"].waitForExistence(timeout: 5))
         XCTAssertTrue(app.checkBoxes["settings-start-at-login"].exists)
         XCTAssertTrue(app.checkBoxes["settings-background-streaming"].exists)
-        let windowSize = app.popUpButtons["settings-window-size"]
-        XCTAssertTrue(windowSize.exists)
-        windowSize.click()
-        for size in ["Small", "Medium", "Large"] {
-            XCTAssertTrue(app.menuItems[size].waitForExistence(timeout: 5))
-        }
-        app.menuItems["Medium"].click()
+        XCTAssertTrue(app.popUpButtons["settings-show-camera-labels"].exists)
         XCTAssertTrue(app.buttons["settings-check-for-updates"].exists)
         XCTAssertTrue(app.staticTexts["settings-version"].exists)
         addScreenshot(named: "TW-418 Settings")
@@ -195,9 +196,8 @@ final class MenuBarInteractionTests: XCTestCase {
     }
 
     @MainActor
-    private func launchApp(panelSize: String = "medium") -> XCUIApplication {
+    private func launchApp() -> XCUIApplication {
         let app = XCUIApplication()
-        app.launchArguments += ["-menuBarPanelSize", panelSize]
         app.launch()
         return app
     }
