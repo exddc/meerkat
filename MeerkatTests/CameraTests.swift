@@ -47,7 +47,7 @@ struct CameraTests {
     }
 
     @Test
-    func duplicateCopiesConnectionSettingsWithUniqueIdentityAndName() {
+    func duplicateCopiesConnectionSettingsWithUniqueIdentity() {
         let source = Camera(
             name: "Front Door",
             streamURLString: "rtsp://viewer:secret@192.168.1.20/live",
@@ -59,7 +59,7 @@ struct CameraTests {
 
         let copy = source.duplicate(among: [source, other])
 
-        #expect(copy.name == "Front Door 3")
+        #expect(copy.name == "Front Door")
         #expect(copy.streamURLString == source.streamURLString)
         #expect(copy.authenticationRequired == source.authenticationRequired)
         #expect(copy.isVisible == source.isVisible)
@@ -74,19 +74,15 @@ struct CameraTests {
         ).password == "secret")
     }
 
-    @Test
-    func duplicateContinuesNumberingFromNumberedCamera() {
-        let source = Camera(name: "Camera 3", streamURLString: "https://camera.test/live")
-        let existing = Camera(name: "Camera 4", streamURLString: "")
+    @Test(arguments: ["", "Front Door", "Camera 3", "  Front Door  ", " \n "])
+    func duplicatePreservesName(name: String) {
+        let source = Camera(name: name, streamURLString: "https://camera.test/live")
+        let existing = Camera(name: name, streamURLString: "", sortIndex: 1)
 
-        #expect(source.duplicate(among: [source, existing]).name == "Camera 5")
-    }
+        let copy = source.duplicate(among: [source, existing])
 
-    @Test
-    func duplicateGivesUnnamedCameraAName() {
-        let source = Camera(name: "", streamURLString: "https://camera.test/live")
-
-        #expect(source.duplicate(among: [source]).name == "Camera 2")
+        #expect(copy.name == name)
+        #expect(copy.duplicate(among: [source, existing, copy]).name == name)
     }
 
 }
