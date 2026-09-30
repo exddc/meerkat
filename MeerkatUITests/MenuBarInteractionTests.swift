@@ -81,6 +81,9 @@ final class MenuBarInteractionTests: XCTestCase {
             let tiles = app.buttons.matching(
                 NSPredicate(format: "identifier ENDSWITH '-tile'")
             )
+            if count > 0 {
+                XCTAssertTrue(tiles.element(boundBy: count - 1).waitForExistence(timeout: 5))
+            }
             XCTAssertEqual(tiles.count, count)
         }
         addScreenshot(named: "Fixed Panel")
