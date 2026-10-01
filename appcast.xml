@@ -3,6 +3,14 @@
     <channel>
         <title>Meerkat</title>
         <item>
+            <title>0.2.0</title>
+            <pubDate>Thu, 01 Oct 2026 13:29:50 +0000</pubDate>
+            <sparkle:version>74</sparkle:version>
+            <sparkle:shortVersionString>0.2.0</sparkle:shortVersionString>
+            <sparkle:minimumSystemVersion>26.0</sparkle:minimumSystemVersion>
+            <enclosure url="https://github.com/exddc/meerkat/releases/download/v0.2.0/Meerkat-0.2.0.dmg" length="3219623" type="application/octet-stream" sparkle:edSignature="KXGLkQK3qug3GxglU2oZ681SGfrwvZAZz/XVbU2rJ/qLHdNZ8nci4JfIMuxozsp2NwgRi16rDy2EADFpGwwLAA=="/>
+        </item>
+        <item>
             <title>0.1.1</title>
             <pubDate>Mon, 14 Sep 2026 19:03:05 +0000</pubDate>
             <sparkle:version>63</sparkle:version>
