@@ -40,25 +40,8 @@ final class Camera {
     }
 
     func duplicate(among cameras: [Camera]) -> Camera {
-        let trimmedName = name.trimmingCharacters(in: .whitespacesAndNewlines)
-        let baseName: String
-        var number = 2
-        if let separator = trimmedName.lastIndex(of: " "),
-           let existingNumber = Int(trimmedName[trimmedName.index(after: separator)...]),
-           existingNumber < Int.max {
-            baseName = String(trimmedName[..<separator])
-            number = max(2, existingNumber + 1)
-        } else {
-            baseName = trimmedName.isEmpty ? "Camera" : trimmedName
-        }
-
-        let existingNames = Set(cameras.map { $0.name.lowercased() })
-        while existingNames.contains("\(baseName) \(number)".lowercased()) {
-            number += 1
-        }
-
         let copy = Camera(
-            name: "\(baseName) \(number)",
+            name: name,
             streamURLString: streamURLString,
             sortIndex: (cameras.map(\.sortIndex).max() ?? -1) + 1,
             isVisible: isVisible
