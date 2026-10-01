@@ -68,21 +68,13 @@ final class MenuBarInteractionTests: XCTestCase {
         let sizes: [(Int, CGFloat)] = [
             (0, 239.75), (1, 239.75), (2, 475.5), (3, 241.5),
             (4, 241.5), (5, 360.25), (8, 479), (10, 484),
+            (8, 479), (3, 241.5), (2, 475.5), (1, 239.75), (0, 239.75),
         ]
         for (count, height) in sizes {
             settings.click()
             XCTAssertTrue(app.buttons["settings-back"].waitForExistence(timeout: 5))
             waitForPanelHeight(484, in: panel)
-            if count == 0 {
-                resetCameras(in: app, count: 0)
-            } else {
-                let removeButtons = app.buttons.matching(
-                    NSPredicate(format: "identifier ENDSWITH '-remove'")
-                )
-                for _ in removeButtons.count..<count {
-                    app.buttons["settings-add-camera"].click()
-                }
-            }
+            setCameraCount(in: app, count: count)
             XCTAssertEqual(panel.frame.height, 484, accuracy: 1)
             app.buttons["settings-back"].click()
             XCTAssertTrue(settings.waitForExistence(timeout: 5))
@@ -229,21 +221,31 @@ final class MenuBarInteractionTests: XCTestCase {
 
     @MainActor
     private func resetCameras(in app: XCUIApplication, count: Int) {
+        setCameraCount(in: app, count: 0)
+        setCameraCount(in: app, count: count)
+    }
+
+    @MainActor
+    private func setCameraCount(in app: XCUIApplication, count: Int) {
         let removeButtons = app.buttons.matching(
             NSPredicate(format: "identifier ENDSWITH '-remove'")
         )
-        while removeButtons.firstMatch.exists {
+        while removeButtons.count > count {
             removeButtons.firstMatch.click()
             let confirm = app.buttons["confirm-camera-removal"]
             XCTAssertTrue(confirm.waitForExistence(timeout: 5))
             confirm.click()
         }
 
-        let addCamera = app.buttons["settings-add-camera"]
-        XCTAssertTrue(addCamera.waitForExistence(timeout: 5))
-        for _ in 0..<count {
-            addCamera.click()
+        let currentCount = removeButtons.count
+        if currentCount < count {
+            let addCamera = app.buttons["settings-add-camera"]
+            XCTAssertTrue(addCamera.waitForExistence(timeout: 5))
+            for _ in currentCount..<count {
+                addCamera.click()
+            }
         }
+        XCTAssertEqual(removeButtons.count, count)
     }
 
     @MainActor
