@@ -54,7 +54,7 @@ final class MenuBarInteractionTests: XCTestCase {
     }
 
     @MainActor
-    func testPanelKeepsFixedSizeAcrossCameraCountsAndSettings() {
+    func testPanelFitsCameraCountsAndResizesForSettings() {
         let app = launchApp()
         defer { app.terminate() }
 
@@ -65,18 +65,21 @@ final class MenuBarInteractionTests: XCTestCase {
         let settings = app.buttons["settings-button"]
         XCTAssertTrue(settings.waitForExistence(timeout: 5))
         let panel = app.dialogs.firstMatch
-        let initialFrame = panel.frame
-        XCTAssertEqual(initialFrame.width, 420, accuracy: 1)
-        XCTAssertEqual(initialFrame.height, 484, accuracy: 1)
-
-        for count in [0, 1, 2, 5] {
+        let sizes: [(Int, CGFloat)] = [
+            (0, 239.75), (1, 239.75), (2, 475.5), (3, 241.5),
+            (4, 241.5), (5, 360.25), (8, 479), (10, 484),
+            (8, 479), (3, 241.5), (2, 475.5), (1, 239.75), (0, 239.75),
+        ]
+        for (count, height) in sizes {
             settings.click()
             XCTAssertTrue(app.buttons["settings-back"].waitForExistence(timeout: 5))
-            resetCameras(in: app, count: count)
-            XCTAssertEqual(panel.frame, initialFrame)
+            waitForPanelHeight(484, in: panel)
+            setCameraCount(in: app, count: count)
+            XCTAssertEqual(panel.frame.height, 484, accuracy: 1)
             app.buttons["settings-back"].click()
             XCTAssertTrue(settings.waitForExistence(timeout: 5))
-            XCTAssertEqual(panel.frame, initialFrame)
+            waitForPanelHeight(height, in: panel)
+            XCTAssertEqual(panel.frame.width, 420, accuracy: 1)
 
             let tiles = app.buttons.matching(
                 NSPredicate(format: "identifier ENDSWITH '-tile'")
@@ -85,8 +88,15 @@ final class MenuBarInteractionTests: XCTestCase {
                 XCTAssertTrue(tiles.element(boundBy: count - 1).waitForExistence(timeout: 5))
             }
             XCTAssertEqual(tiles.count, count)
+            if count > 0, count <= 8 {
+                XCTAssertEqual(tiles.firstMatch.frame.minY - panel.frame.minY, 4, accuracy: 1)
+                XCTAssertEqual(panel.frame.maxY - tiles.element(boundBy: count - 1).frame.maxY, 4, accuracy: 1)
+            }
+            let attachment = XCTAttachment(screenshot: panel.screenshot())
+            attachment.name = "\(count) Cameras"
+            attachment.lifetime = .keepAlways
+            add(attachment)
         }
-        addScreenshot(named: "Fixed Panel")
     }
 
     @MainActor
@@ -116,6 +126,7 @@ final class MenuBarInteractionTests: XCTestCase {
             NSPredicate(format: "identifier ENDSWITH '-tile'")
         )
         XCTAssertEqual(tiles.count, 1)
+        waitForPanelHeight(239.75, in: app.dialogs.firstMatch)
     }
 
     @MainActor
@@ -161,15 +172,18 @@ final class MenuBarInteractionTests: XCTestCase {
         )
         XCTAssertTrue(tiles.firstMatch.waitForExistence(timeout: 5))
         XCTAssertGreaterThanOrEqual(tiles.count, 2)
+        waitForPanelHeight(241.5, in: app.dialogs.firstMatch)
         addScreenshot(named: "TW-375 Before")
 
         tiles.firstMatch.click()
         waitForHittableTileCount(1, in: tiles)
+        waitForPanelHeight(239.75, in: app.dialogs.firstMatch)
         XCTAssertFalse(settings.isHittable)
         addScreenshot(named: "TW-375 Expanded")
 
         tiles.allElementsBoundByIndex.first(where: \.isHittable)?.click()
         XCTAssertTrue(settings.waitForExistence(timeout: 5))
+        waitForPanelHeight(241.5, in: app.dialogs.firstMatch)
     }
 
     @MainActor
@@ -207,21 +221,31 @@ final class MenuBarInteractionTests: XCTestCase {
 
     @MainActor
     private func resetCameras(in app: XCUIApplication, count: Int) {
+        setCameraCount(in: app, count: 0)
+        setCameraCount(in: app, count: count)
+    }
+
+    @MainActor
+    private func setCameraCount(in app: XCUIApplication, count: Int) {
         let removeButtons = app.buttons.matching(
             NSPredicate(format: "identifier ENDSWITH '-remove'")
         )
-        while removeButtons.firstMatch.exists {
+        while removeButtons.count > count {
             removeButtons.firstMatch.click()
             let confirm = app.buttons["confirm-camera-removal"]
             XCTAssertTrue(confirm.waitForExistence(timeout: 5))
             confirm.click()
         }
 
-        let addCamera = app.buttons["settings-add-camera"]
-        XCTAssertTrue(addCamera.waitForExistence(timeout: 5))
-        for _ in 0..<count {
-            addCamera.click()
+        let currentCount = removeButtons.count
+        if currentCount < count {
+            let addCamera = app.buttons["settings-add-camera"]
+            XCTAssertTrue(addCamera.waitForExistence(timeout: 5))
+            for _ in currentCount..<count {
+                addCamera.click()
+            }
         }
+        XCTAssertEqual(removeButtons.count, count)
     }
 
     @MainActor
@@ -236,6 +260,18 @@ final class MenuBarInteractionTests: XCTestCase {
         }
         expectation(for: predicate, evaluatedWith: tiles)
         waitForExpectations(timeout: 5)
+    }
+
+    @MainActor
+    private func waitForPanelHeight(_ height: CGFloat, in panel: XCUIElement) {
+        let predicate = NSPredicate { _, _ in
+            MainActor.assumeIsolated {
+                abs(panel.frame.height - height) <= 1
+            }
+        }
+        expectation(for: predicate, evaluatedWith: panel)
+        waitForExpectations(timeout: 5)
+        XCTAssertEqual(panel.frame.height, height, accuracy: 1)
     }
 
     @MainActor
