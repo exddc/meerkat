@@ -1,8 +1,8 @@
 # Meerkat
 
-Peek at your cameras from the menu bar. Instantly.
+Peek at your cameras from the menu bar.
 
-![Meerkat screenshot](docs/meerkat-screenshot.png)
+![Meerkat screenshot](docs/meerkat-desktop-1600x900.png)
 
 Meerkat is a macOS menu bar app that plays a live grid of Reolink, Tapo, and Eufy camera streams in a small window triggered from the menu bar icon. The app is designed to be lightweight and fast, and to use minimal resources.
 
