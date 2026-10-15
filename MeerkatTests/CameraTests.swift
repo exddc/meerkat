@@ -841,3 +841,32 @@ struct LegacyCameraStoreTests {
         #expect(!FileManager.default.fileExists(atPath: directory.appending(path: "missing.store").path))
     }
 }
+
+extension LegacyCameraStoreTests {
+    @Test func lockedStoreLeavesImportPendingUntilRetry() throws {
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let legacyURL = directory.appending(path: "default.store")
+        var lock: OpaquePointer?
+        #expect(sqlite3_open(legacyURL.path, &lock) == SQLITE_OK)
+        defer { sqlite3_close(lock) }
+        sqlite3_exec(lock, "CREATE TABLE ZCAMERA (Z_PK INTEGER PRIMARY KEY, ZNAME TEXT, ZSTREAMURLSTRING TEXT)", nil, nil, nil)
+        sqlite3_exec(lock, "INSERT INTO ZCAMERA (ZNAME, ZSTREAMURLSTRING) VALUES ('Front', 'https://camera.test/1')", nil, nil, nil)
+        sqlite3_exec(lock, "BEGIN EXCLUSIVE", nil, nil, nil)
+        let destination = Persistence.preview(cameras: [])
+        let defaults = makeDefaults()
+
+        #expect(throws: LegacyCameraStore.ReadError.self) {
+            try LegacyCameraStore.importIfNeeded(from: legacyURL, into: destination.mainContext, defaults: defaults)
+        }
+        #expect(!defaults.bool(forKey: LegacyCameraStore.importCompletedKey))
+
+        sqlite3_exec(lock, "COMMIT", nil, nil, nil)
+        try LegacyCameraStore.importIfNeeded(from: legacyURL, into: destination.mainContext, defaults: defaults)
+
+        let cameras = try destination.mainContext.fetch(FetchDescriptor<Camera>())
+        #expect(cameras.map(\.name) == ["Front"])
+        #expect(cameras.first?.isVisible == true)
+        #expect(defaults.bool(forKey: LegacyCameraStore.importCompletedKey))
+    }
+}

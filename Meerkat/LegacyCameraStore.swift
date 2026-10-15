@@ -2,13 +2,12 @@ import Foundation
 import SQLite3
 import SwiftData
 
-struct LegacyCamera: Equatable {
+struct LegacyCamera {
     var cameraID: UUID
     var name: String
     var streamURLString: String
     var authenticationRequired: Bool?
     var requiresAddressChange: Bool?
-    var sortIndex: Int
     var isVisible: Bool
 }
 
@@ -65,7 +64,7 @@ enum LegacyCameraStore {
 
         let selected = [
             "ZCAMERAID", "ZNAME", "ZSTREAMURLSTRING", "ZAUTHENTICATIONREQUIRED",
-            "ZREQUIRESADDRESSCHANGE", "ZSORTINDEX", "ZISVISIBLE",
+            "ZREQUIRESADDRESSCHANGE", "ZISVISIBLE",
         ].map { columns.contains($0) ? $0 : "NULL" }
         let order = columns.contains("ZSORTINDEX") ? "ZSORTINDEX, Z_PK" : "Z_PK"
         let statement = try prepare(
@@ -85,8 +84,7 @@ enum LegacyCameraStore {
                         streamURLString: text(statement, 2) ?? "",
                         authenticationRequired: bool(statement, 3),
                         requiresAddressChange: bool(statement, 4),
-                        sortIndex: Int(sqlite3_column_int64(statement, 5)),
-                        isVisible: bool(statement, 6) ?? true
+                        isVisible: bool(statement, 5) ?? true
                     )
                 )
             case SQLITE_DONE:
@@ -101,10 +99,16 @@ enum LegacyCameraStore {
         let statement = try prepare("PRAGMA table_info(\(table))", in: database)
         defer { sqlite3_finalize(statement) }
         var names: Set<String> = []
-        while sqlite3_step(statement) == SQLITE_ROW {
-            if let name = text(statement, 1) { names.insert(name) }
+        while true {
+            switch sqlite3_step(statement) {
+            case SQLITE_ROW:
+                if let name = text(statement, 1) { names.insert(name) }
+            case SQLITE_DONE:
+                return names
+            default:
+                throw ReadError(message: errorMessage(database))
+            }
         }
-        return names
     }
 
     private static func prepare(_ sql: String, in database: OpaquePointer?) throws -> OpaquePointer? {
