@@ -4,14 +4,37 @@ import SwiftData
 enum Persistence {
     static let schema = Schema([Camera.self])
 
+    static let productionBundleIdentifier = "com.exddc.meerkat"
+
+    static func storeURL(bundleIdentifier: String? = Bundle.main.bundleIdentifier) -> URL {
+        URL.applicationSupportDirectory
+            .appending(path: bundleIdentifier ?? productionBundleIdentifier, directoryHint: .isDirectory)
+            .appending(path: "Meerkat.store")
+    }
+
     static let container: ModelContainer = {
-        let configuration = ModelConfiguration(isStoredInMemoryOnly: false)
+        let url = storeURL()
         do {
+            try FileManager.default.createDirectory(
+                at: url.deletingLastPathComponent(),
+                withIntermediateDirectories: true
+            )
+            let configuration = ModelConfiguration(schema: schema, url: url)
             return try ModelContainer(for: schema, configurations: [configuration])
         } catch {
             fatalError("Failed to create model container: \(error)")
         }
     }()
+
+    @MainActor
+    static func importLegacyCameras() {
+        guard Bundle.main.bundleIdentifier == productionBundleIdentifier else { return }
+        do {
+            try LegacyCameraStore.importIfNeeded(into: container.mainContext)
+        } catch {
+            NSLog("Legacy camera import failed, retrying next launch: \(error)")
+        }
+    }
 
     @MainActor
     static func cameraIngestConfigurations() -> [CameraIngestConfiguration] {

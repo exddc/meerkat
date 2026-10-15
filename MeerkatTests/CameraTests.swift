@@ -1,4 +1,5 @@
 import Foundation
+import SQLite3
 import SwiftData
 import Testing
 @testable import Meerkat
@@ -752,4 +753,91 @@ private final class CameraCheckProtocol: URLProtocol, @unchecked Sendable {
     }
 
     override func stopLoading() {}
+}
+
+@MainActor
+struct LegacyCameraStoreTests {
+    private let directory = FileManager.default.temporaryDirectory
+        .appending(path: UUID().uuidString, directoryHint: .isDirectory)
+
+    private func makeDefaults() -> UserDefaults {
+        let suiteName = "LegacyCameraStoreTests.\(UUID().uuidString)"
+        let defaults = UserDefaults(suiteName: suiteName)!
+        defaults.removePersistentDomain(forName: suiteName)
+        return defaults
+    }
+
+    private func makeLegacyStore(_ cameras: [Camera]) throws -> (URL, ModelContainer) {
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let url = directory.appending(path: "default.store")
+        let container = try ModelContainer(
+            for: Persistence.schema,
+            configurations: [ModelConfiguration(schema: Persistence.schema, url: url)]
+        )
+        cameras.forEach(container.mainContext.insert)
+        try container.mainContext.save()
+        return (url, container)
+    }
+
+    @Test func storeURLIsScopedToBundleIdentifier() {
+        let url = Persistence.storeURL(bundleIdentifier: "com.example.app")
+
+        #expect(url.lastPathComponent == "Meerkat.store")
+        #expect(url.deletingLastPathComponent().lastPathComponent == "com.example.app")
+        #expect(url != LegacyCameraStore.url)
+    }
+
+    @Test func importsLegacyCamerasOnceWithoutDuplicates() throws {
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let hidden = Camera(name: "Garage", streamURLString: "rtsp://camera.test/2", sortIndex: 1, isVisible: false)
+        hidden.authenticationRequired = true
+        hidden.requiresAddressChange = false
+        let front = Camera(name: "Front", streamURLString: "https://camera.test/1", sortIndex: 0)
+        let (legacyURL, legacyContainer) = try makeLegacyStore([hidden, front])
+        let destination = Persistence.preview(cameras: [])
+        let defaults = makeDefaults()
+
+        try LegacyCameraStore.importIfNeeded(from: legacyURL, into: destination.mainContext, defaults: defaults)
+        defaults.removeObject(forKey: LegacyCameraStore.importCompletedKey)
+        try LegacyCameraStore.importIfNeeded(from: legacyURL, into: destination.mainContext, defaults: defaults)
+
+        let cameras = try destination.mainContext.fetch(
+            FetchDescriptor<Camera>(sortBy: [SortDescriptor(\Camera.sortIndex)])
+        )
+        #expect(cameras.map(\.cameraID) == [front.cameraID, hidden.cameraID])
+        #expect(cameras.map(\.name) == ["Front", "Garage"])
+        #expect(cameras[1].streamURLString == "rtsp://camera.test/2")
+        #expect(cameras[1].isVisible == false)
+        #expect(cameras[1].authenticationRequired == true)
+        #expect(cameras[1].requiresAddressChange == false)
+        #expect(cameras[0].authenticationRequired == nil)
+        #expect(defaults.bool(forKey: LegacyCameraStore.importCompletedKey))
+        _ = legacyContainer
+    }
+
+    @Test func skipsImportAfterCompletion() throws {
+        defer { try? FileManager.default.removeItem(at: directory) }
+        let (legacyURL, _) = try makeLegacyStore([Camera(name: "Front", streamURLString: "https://camera.test/1")])
+        let destination = Persistence.preview(cameras: [])
+        let defaults = makeDefaults()
+        defaults.set(true, forKey: LegacyCameraStore.importCompletedKey)
+
+        try LegacyCameraStore.importIfNeeded(from: legacyURL, into: destination.mainContext, defaults: defaults)
+
+        #expect(try destination.mainContext.fetchCount(FetchDescriptor<Camera>()) == 0)
+    }
+
+    @Test func ignoresMissingAndForeignStores() throws {
+        defer { try? FileManager.default.removeItem(at: directory) }
+        try FileManager.default.createDirectory(at: directory, withIntermediateDirectories: true)
+        let foreignURL = directory.appending(path: "foreign.store")
+        var database: OpaquePointer?
+        #expect(sqlite3_open(foreignURL.path, &database) == SQLITE_OK)
+        sqlite3_exec(database, "CREATE TABLE ZAPIREQUESTMODEL (Z_PK INTEGER PRIMARY KEY)", nil, nil, nil)
+        sqlite3_close(database)
+
+        #expect(try LegacyCameraStore.readCameras(at: foreignURL).isEmpty)
+        #expect(try LegacyCameraStore.readCameras(at: directory.appending(path: "missing.store")).isEmpty)
+        #expect(!FileManager.default.fileExists(atPath: directory.appending(path: "missing.store").path))
+    }
 }
