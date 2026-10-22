@@ -16,6 +16,7 @@ Only the camera type is required. Run each command in a separate terminal:
 uv run meerkat-mock tapo
 uv run meerkat-mock eufy
 uv run meerkat-mock reolink
+uv run meerkat-mock onvif
 ```
 
 | Type | Default endpoints | Authentication |
@@ -23,11 +24,13 @@ uv run meerkat-mock reolink
 | `tapo` | `rtsp://127.0.0.1:8554/stream1`, `/stream2` | Digest |
 | `eufy` | `rtsp://127.0.0.1:8555/live0`, `/live1` | Digest |
 | `reolink` | `http://127.0.0.1:8000/flv` | Query parameters |
+| `onvif` | `http://127.0.0.1:8080/onvif/device_service` advertising `rtsp://127.0.0.1:8556/Streaming/Channels/101`, `/102` | WS-Security digest, RTSP digest |
 
 The username is `admin` and the password is `meerkat`.
-For Tapo and Eufy, enter `127.0.0.1` in Meerkat and supply these credentials.
-Meerkat probes known stream endpoints and saves one after validation.
+For Tapo, Eufy, and ONVIF, enter `127.0.0.1` in Meerkat and supply these credentials.
+Meerkat probes known stream endpoints and ONVIF stream URLs, and saves one after validation.
 Enter `127.0.0.1:8554` or `127.0.0.1:8555` to target one mock explicitly.
+Enter `127.0.0.1:8080` to target the ONVIF device service. Change its port with `--onvif-port`.
 
 Stop a camera with Ctrl-C. Its child processes stop automatically.
 

@@ -4,7 +4,7 @@ Peek at your cameras from the menu bar.
 
 ![Meerkat screenshot](docs/meerkat-desktop-1600x900.png)
 
-Meerkat is a macOS menu bar app that plays a live grid of Reolink, Tapo, and Eufy camera streams in a small window triggered from the menu bar icon. The app is designed to be lightweight and fast, and to use minimal resources.
+Meerkat is a macOS menu bar app that plays a live grid of Reolink, Tapo, Eufy, and ONVIF camera streams in a small window triggered from the menu bar icon. The app is designed to be lightweight and fast, and to use minimal resources.
 
 By default, stream connections stay open in the background so the panel can show live video instantly. You can turn off background streaming in Settings to disconnect cameras while the panel is closed.
 
@@ -23,12 +23,15 @@ Supported camera streams:
 - Reolink over HTTPS-FLV (tested with RLC-520A and RLC-810A)
 - Tapo over RTSP (`/stream1` and `/stream2`)
 - Eufy over RTSP (`/live0` and `/live1`)
+- ONVIF cameras with H.264 RTSP streams
 
-Enable RTSP on Tapo and Eufy cameras that support it and use the camera's stream credentials. You can also enter a complete HTTPS-FLV or RTSP stream URL. For local testing, use the [camera mock server](mock/README.md).
+Enable RTSP on Tapo and Eufy cameras that support it and use the camera's stream credentials. For other cameras, enable ONVIF and use an ONVIF user. You can also enter a complete HTTPS-FLV or RTSP stream URL. For local testing, use the [camera mock server](mock/README.md).
 
 ## Usage
 
 Add a camera in Settings by clicking "Add camera". Enter the camera's IP address, username, and password if required.
+
+Meerkat first tries the main Reolink and Tapo endpoints, then the H.264 streams the camera advertises over ONVIF, then the remaining known endpoints. It saves the first stream that plays.
 
 Use the visibility toggle beside each camera to show or hide it in the grid. Duplicate a camera in Settings to reuse its connection details. Enable "Start Meerkat at login" to start Meerkat when you sign in.
 

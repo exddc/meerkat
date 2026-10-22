@@ -268,6 +268,39 @@ struct CameraInputTests {
         #expect(Set(automaticPortURLs.map { $0.port ?? 554 }) == [554, 8554, 8555])
     }
 
+    @Test func targetsONVIFDeviceServiceOnlyForBareAddresses() {
+        #expect(CameraInput("192.0.2.20").onvifDeviceServiceURLs.map(\.absoluteString)
+            == [80, 2020, 8000, 8080, 8899].map { "http://192.0.2.20:\($0)/onvif/device_service" })
+        #expect(CameraInput("192.0.2.20:2020").onvifDeviceServiceURLs.map(\.absoluteString)
+            == ["http://192.0.2.20:2020/onvif/device_service"])
+        #expect(CameraInput("[fd00::1]").onvifDeviceServiceURLs.first?.host == "fd00::1")
+        #expect(CameraInput("rtsp://192.0.2.20/stream1").onvifDeviceServiceURLs.isEmpty)
+    }
+
+    @Test func normalizesAdvertisedStreamURLsToEnteredHost() {
+        var input = CameraInput("192.0.2.20:2020")
+        input.username = "viewer"
+        input.password = "p@ss"
+
+        let urls = input.advertisedStreamURLs([
+            "rtsp://10.0.0.99:554/Streaming/Channels/101?transportmode=unicast&profile=Profile_1",
+            " rtsp://admin:old@10.0.0.99/cam/realmonitor?channel=1&subtype=1 ",
+            "rtsp://10.0.0.99:554/Streaming/Channels/101?transportmode=unicast&profile=Profile_1",
+            "http://10.0.0.99/snapshot.jpg",
+            "rtsp:///missing-host",
+            "not a url",
+            "",
+        ])
+
+        #expect(urls.map(\.absoluteString) == [
+            "rtsp://viewer:p%40ss@192.0.2.20:554/Streaming/Channels/101?transportmode=unicast&profile=Profile_1",
+            "rtsp://viewer:p%40ss@192.0.2.20/cam/realmonitor?channel=1&subtype=1",
+        ])
+        input.requiresAuthentication = false
+        #expect(input.advertisedStreamURLs(["rtsp://admin:old@10.0.0.99/live"]).map(\.absoluteString)
+            == ["rtsp://192.0.2.20/live"])
+    }
+
     @Test func rejectsInvalidAddresses() {
         for input in ["", "https://", "http://192.168.1.2", "file:///tmp/live", "not an address", "192.168.1.2:99999"] {
             #expect(CameraInput(input).streamURL == nil)
@@ -434,7 +467,8 @@ struct CameraConfigurationEditorTests {
         let editor = CameraConfigurationEditor(
             camera: camera,
             debounceDuration: .zero,
-            endpointCheck: { try await probes.check($0) }
+            endpointCheck: { try await probes.check($0) },
+            streamDiscovery: { _ in [] }
         )
 
         var input = editor.input
@@ -459,12 +493,113 @@ struct CameraConfigurationEditorTests {
         #expect(camera.streamURLString == tapoURL.absoluteString)
     }
 
+    @Test func prefersPrimaryKnownEndpointOverONVIFStream() async throws {
+        let camera = Camera(name: "Tapo", streamURLString: "https://old.test/live")
+        let checked = CheckedURLs()
+        let editor = CameraConfigurationEditor(camera: camera, debounceDuration: .zero, endpointCheck: { url in
+            await checked.append(url)
+            guard url.path == "/stream1", url.port == 8554 else { throw CameraEndpointCheck.Failure.unavailable }
+        }, streamDiscovery: { _ in ["rtsp://10.0.0.99/Streaming/Channels/101"] })
+        var input = CameraInput("127.0.0.1:8554")
+        input.username = "admin"
+        input.password = "meerkat"
+        editor.input = input
+
+        try await waitUntil { camera.streamURLString.hasSuffix(":8554/stream1") }
+        #expect(await !checked.urls.contains { $0.path.hasPrefix("/Streaming") })
+    }
+
+    @Test func savesFirstValidatedONVIFStreamBeforeSecondaryKnownPaths() async throws {
+        let camera = Camera(name: "Garage", streamURLString: "https://old.test/live")
+        let advertised = [
+            "rtsp://10.0.0.99/Streaming/Channels/101",
+            "http://10.0.0.99/snapshot.jpg",
+            "rtsp://10.0.0.99/Streaming/Channels/102",
+        ]
+        var input = CameraInput("192.0.2.20")
+        input.username = "viewer"
+        input.password = "secret"
+        let profiles = input.advertisedStreamURLs(advertised)
+        let checked = CheckedURLs()
+        let editor = CameraConfigurationEditor(camera: camera, debounceDuration: .zero, endpointCheck: { url in
+            await checked.append(url)
+            guard url == profiles[1] else { throw CameraEndpointCheck.Failure.unavailable }
+        }, streamDiscovery: { _ in advertised })
+        editor.input = input
+
+        try await waitUntil { camera.streamURLString == profiles[1].absoluteString }
+        let primary = try #require(input.completeStreamURLGroups.first)
+        #expect(profiles.count == 2)
+        #expect(await Set(checked.urls.prefix(primary.count)) == Set(primary))
+        #expect(await Array(checked.urls.dropFirst(primary.count)) == profiles)
+        #expect(editor.endpointError == nil)
+    }
+
+    @Test(arguments: [
+        { _ in throw CameraEndpointCheck.Failure.unavailable },
+        { _ in ["http://10.0.0.99/snapshot.jpg"] },
+        { _ in ["rtsp://10.0.0.99/unsupported"] },
+    ] as [CameraConfigurationEditor.StreamDiscovery])
+    func fallsBackToKnownPathsWithoutUsableONVIFStream(
+        discovery: @escaping CameraConfigurationEditor.StreamDiscovery
+    ) async throws {
+        let camera = Camera(name: "Front Door", streamURLString: "https://old.test/live")
+        let editor = CameraConfigurationEditor(camera: camera, debounceDuration: .zero, endpointCheck: { url in
+            guard url.path == "/live0" else { throw CameraEndpointCheck.Failure.unavailable }
+        }, streamDiscovery: discovery)
+        var input = CameraInput("127.0.0.1:8555")
+        input.username = "admin"
+        input.password = "meerkat"
+        editor.input = input
+
+        try await waitUntil { camera.streamURLString.hasSuffix(":8555/live0") }
+        #expect(editor.endpointError == nil)
+    }
+
+    @Test func keepsONVIFCredentialFailureWhenFallbackFails() async throws {
+        let camera = Camera(name: "Camera", streamURLString: "https://old.test/live")
+        let editor = CameraConfigurationEditor(camera: camera, debounceDuration: .zero, endpointCheck: { _ in
+            throw CameraEndpointCheck.Failure.unavailable
+        }, streamDiscovery: { _ in
+            throw CameraEndpointCheck.Failure.credentials
+        })
+        var input = CameraInput("127.0.0.1")
+        input.username = "viewer"
+        input.password = "wrong"
+        editor.input = input
+
+        try await waitUntil { editor.endpointError != nil }
+        #expect(editor.endpointError == "Check the camera username and password.")
+        #expect(camera.streamURLString == "https://old.test/live")
+    }
+
+    @Test func closingDuringONVIFDiscoveryPreservesPreviousAddress() async throws {
+        let camera = Camera(name: "Front Door", streamURLString: "https://old.test/live")
+        let discovery = DiscoveryGate()
+        let checked = CheckedURLs()
+        let editor = CameraConfigurationEditor(camera: camera, debounceDuration: .zero, endpointCheck: { url in
+            await checked.append(url)
+        }, streamDiscovery: { _ in await discovery.wait() })
+        var input = CameraInput("192.0.2.20")
+        input.username = "viewer"
+        input.password = "secret"
+        editor.input = input
+
+        try await waitUntil { await discovery.isWaiting }
+        editor.flush()
+        await discovery.release(["rtsp://10.0.0.99/Streaming/Channels/101"])
+        try await Task.sleep(for: .milliseconds(20))
+
+        #expect(camera.streamURLString == "https://old.test/live")
+        #expect(await !checked.urls.contains { $0.path.hasPrefix("/Streaming") })
+    }
+
     @Test func failedDiscoveryDoesNotSaveGuessedEndpoint() async throws {
         let camera = Camera(name: "Camera", streamURLString: "https://old.test/live")
         camera.authenticationRequired = false
         let editor = CameraConfigurationEditor(camera: camera, debounceDuration: .zero, endpointCheck: { _ in
             throw CameraEndpointCheck.Failure.unavailable
-        })
+        }, streamDiscovery: { _ in [] })
         var input = editor.input
         input.address = "127.0.0.1"
         editor.input = input
@@ -478,7 +613,7 @@ struct CameraConfigurationEditorTests {
         let editor = CameraConfigurationEditor(camera: camera, debounceDuration: .zero, endpointCheck: { url in
             throw url.path == "/live0"
                 ? CameraEndpointCheck.Failure.credentials : CameraEndpointCheck.Failure.unavailable
-        })
+        }, streamDiscovery: { _ in [] })
         var input = CameraInput("127.0.0.1")
         input.username = "viewer"
         input.password = "wrong"
@@ -494,7 +629,8 @@ struct CameraConfigurationEditorTests {
         let probes = EndpointProbeRecorder()
         let editor = CameraConfigurationEditor(
             camera: camera, debounceDuration: .zero,
-            endpointCheck: { try await probes.check($0) }
+            endpointCheck: { try await probes.check($0) },
+            streamDiscovery: { _ in [] }
         )
         var input = editor.input
         input.address = "127.0.0.1:8554"
@@ -543,7 +679,8 @@ struct CameraConfigurationEditorTests {
         let editor = CameraConfigurationEditor(
             camera: eufy,
             debounceDuration: .zero,
-            endpointCheck: { try await probes.check($0) }
+            endpointCheck: { try await probes.check($0) },
+            streamDiscovery: { _ in [] }
         )
 
         var input = CameraInput("127.0.0.1")
@@ -690,6 +827,29 @@ struct CameraConfigurationEditorTests {
             try await Task.sleep(for: .milliseconds(10))
         }
         Issue.record("Timed out waiting for asynchronous editor state")
+    }
+}
+
+private actor CheckedURLs {
+    private(set) var urls: [URL] = []
+
+    func append(_ url: URL) {
+        urls.append(url)
+    }
+}
+
+private actor DiscoveryGate {
+    private var continuation: CheckedContinuation<[String], Never>?
+
+    var isWaiting: Bool { continuation != nil }
+
+    func wait() async -> [String] {
+        await withCheckedContinuation { continuation = $0 }
+    }
+
+    func release(_ uris: [String]) {
+        continuation?.resume(returning: uris)
+        continuation = nil
     }
 }
 
