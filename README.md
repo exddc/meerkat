@@ -1,10 +1,12 @@
 # Meerkat
 
-Peek at your cameras from the menu bar.
+Peek at your local cameras from the menu bar.
 
 ![Meerkat screenshot](docs/meerkat-desktop-1600x900.png)
 
-Meerkat is a macOS menu bar app that plays a live grid of Reolink, Tapo, and Eufy camera streams in a small window triggered from the menu bar icon. The app is designed to be lightweight and fast, and to use minimal resources.
+Meerkat is a macOS menu bar app that plays a live grid of Reolink, Tapo, and Eufy camera streams from devices on your local network. Click the icon, see the cameras. No cloud account, no vendor app, no remote access.
+
+The app is designed to be lightweight and fast, and to use minimal resources.
 
 By default, stream connections stay open in the background so the panel can show live video instantly. You can turn off background streaming in Settings to disconnect cameras while the panel is closed.
 
@@ -28,7 +30,7 @@ Enable RTSP on Tapo and Eufy cameras that support it and use the camera's stream
 
 ## Usage
 
-Add a camera in Settings by clicking "Add camera". Enter the camera's IP address, username, and password if required.
+Add a camera in Settings by clicking "Add camera". Enter the camera's local IP address, username, and password if required. The Mac and the cameras need to be on the same network.
 
 Use the visibility toggle beside each camera to show or hide it in the grid. Duplicate a camera in Settings to reuse its connection details. Enable "Start Meerkat at login" to start Meerkat when you sign in.
 
