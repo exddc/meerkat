@@ -66,6 +66,8 @@ def test_reolink_type_only_keeps_http_defaults(monkeypatch: pytest.MonkeyPatch) 
     ("argv", "message"),
     [
         (["tapo", "--port", "0"], "between 1 and 65535"),
+        (["onvif", "--onvif-port", "70000"], "between 1 and 65535"),
+        (["tapo", "--onvif-port", "9000"], "only applies to the onvif camera"),
         (["eufy", "--username", "any"], "other than 'any'"),
         (["reolink", "--ssl-certfile", "cert.pem"], "must be used together"),
         (

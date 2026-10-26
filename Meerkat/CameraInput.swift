@@ -83,7 +83,7 @@ struct CameraInput: Equatable {
         let ports: [Int?] = components.port.map { [$0] } ?? [nil, 8554, 8555]
         let rtspURLs = ports.flatMap { port in
             ["/stream1", "/stream2", "/live0", "/live1"].compactMap { path in
-                rtspURL(components: components, port: port, path: path)
+                rtspURL(components: components, port: port, percentEncodedPath: path)
             }
         }
         return [streamURL] + rtspURLs
@@ -106,12 +106,48 @@ struct CameraInput: Equatable {
         return components.path.isEmpty || components.path == "/"
     }
 
-    private func rtspURL(components: URLComponents, port: Int?, path: String) -> URL? {
+    var onvifDeviceServiceURLs: [URL] {
+        guard usesEndpointDiscovery, let components = Self.components(address) else { return [] }
+        return (components.port.map { [$0] } ?? [80, 2020, 8000, 8080, 8899]).compactMap { port in
+            var url = URLComponents()
+            url.scheme = "http"
+            url.percentEncodedHost = components.percentEncodedHost
+            url.port = port
+            url.path = "/onvif/device_service"
+            return url.url
+        }
+    }
+
+    func advertisedStreamURLs(_ uris: [String]) -> [URL] {
+        guard let components = Self.components(address) else { return [] }
+        var seen = Set<URL>()
+        return uris.compactMap { uri in
+            guard let advertised = URLComponents(string: uri.trimmingCharacters(in: .whitespacesAndNewlines)),
+                  advertised.scheme?.lowercased() == "rtsp",
+                  advertised.host?.isEmpty == false,
+                  advertised.port.map({ (1...65535).contains($0) }) ?? true,
+                  let url = rtspURL(
+                    components: components,
+                    port: advertised.port,
+                    percentEncodedPath: advertised.percentEncodedPath,
+                    percentEncodedQuery: advertised.percentEncodedQuery
+                  ),
+                  seen.insert(url).inserted else { return nil }
+            return url
+        }
+    }
+
+    private func rtspURL(
+        components: URLComponents,
+        port: Int?,
+        percentEncodedPath: String,
+        percentEncodedQuery: String? = nil
+    ) -> URL? {
         var components = components
         components.scheme = "rtsp"
         components.port = port
-        components.path = path
-        components.query = nil
+        components.percentEncodedPath = percentEncodedPath
+        components.percentEncodedQuery = percentEncodedQuery
         components.fragment = nil
         if requiresAuthentication {
             components.user = username
@@ -160,6 +196,7 @@ struct CameraInput: Equatable {
 @MainActor
 final class CameraConfigurationEditor: ObservableObject {
     typealias EndpointCheck = @Sendable (URL) async throws -> Void
+    typealias StreamDiscovery = @Sendable (CameraInput) async throws -> [String]
 
     @Published var input: CameraInput {
         didSet {
@@ -173,6 +210,7 @@ final class CameraConfigurationEditor: ObservableObject {
     private let requiresAttachedCamera: Bool
     private let debounceDuration: Duration
     private let endpointCheck: EndpointCheck
+    private let streamDiscovery: StreamDiscovery
     private var updateRevision = 0
     private var updateTask: Task<Void, Never>?
     private var resolvedURL: URL?
@@ -182,12 +220,19 @@ final class CameraConfigurationEditor: ObservableObject {
         debounceDuration: Duration = .milliseconds(700),
         endpointCheck: @escaping EndpointCheck = { url in
             try await CameraEndpointCheck(url: url).check()
+        },
+        streamDiscovery: @escaping StreamDiscovery = { input in
+            try await ONVIFDiscovery(
+                deviceServiceURLs: input.onvifDeviceServiceURLs,
+                credentials: input.requiresAuthentication ? (input.username, input.password) : nil
+            ).streamURIs()
         }
     ) {
         self.camera = camera
         requiresAttachedCamera = camera.modelContext != nil
         self.debounceDuration = debounceDuration
         self.endpointCheck = endpointCheck
+        self.streamDiscovery = streamDiscovery
         input = CameraInput(
             playbackURLString: camera.streamURLString,
             authenticationRequired: camera.authenticationRequired
@@ -213,6 +258,7 @@ final class CameraConfigurationEditor: ObservableObject {
         let input = input
         let debounceDuration = debounceDuration
         let endpointCheck = endpointCheck
+        let streamDiscovery = streamDiscovery
         let usedEndpoints = usedEndpointIdentities()
         endpointError = nil
 
@@ -231,13 +277,10 @@ final class CameraConfigurationEditor: ObservableObject {
                     self?.setEndpointError("Enter the camera username and password.", for: revision)
                     return
                 }
-                let candidateGroups = groups.compactMap { group in
-                    let available = group.filter {
-                        !usedEndpoints.contains(Self.endpointIdentity(for: $0))
-                    }
-                    return available.isEmpty ? nil : available
+                let candidateGroups = groups.map { group in
+                    group.filter { !usedEndpoints.contains(Self.endpointIdentity(for: $0)) }
                 }
-                guard !candidateGroups.isEmpty else {
+                guard candidateGroups.contains(where: { !$0.isEmpty }) else {
                     self?.setEndpointError("This camera is already added.", for: revision)
                     return
                 }
@@ -246,7 +289,13 @@ final class CameraConfigurationEditor: ObservableObject {
                     guard self?.persist(input, url: url) == true else { return }
                 }
 
-                let resolvedURL = try await Self.resolve(candidateGroups, using: endpointCheck)
+                let resolvedURL = try await Self.resolve(
+                    input,
+                    candidateGroups: candidateGroups,
+                    excluding: usedEndpoints,
+                    discovery: streamDiscovery,
+                    endpointCheck: endpointCheck
+                )
                 try Task.checkCancellation()
                 guard self?.updateRevision == revision else { return }
                 guard self?.persist(input, url: resolvedURL) == true else { return }
@@ -312,25 +361,69 @@ final class CameraConfigurationEditor: ObservableObject {
     }
 
     nonisolated private static func resolve(
-        _ candidateGroups: [[URL]],
-        using endpointCheck: @escaping EndpointCheck
+        _ input: CameraInput,
+        candidateGroups: [[URL]],
+        excluding usedEndpoints: Set<String>,
+        discovery: @escaping StreamDiscovery,
+        endpointCheck: @escaping EndpointCheck
     ) async throws -> URL {
+        async let discovered = discoveredStreamURLs(input, excluding: usedEndpoints, using: discovery)
+        let primaryCount = input.usesEndpointDiscovery ? 1 : candidateGroups.count
         var credentialsFailed = false
+        if let url = try await firstAvailable(
+            in: candidateGroups.prefix(primaryCount), credentialsFailed: &credentialsFailed, using: endpointCheck
+        ) {
+            return url
+        }
+        let (advertised, discoveryCredentialsFailed) = try await discovered
+        credentialsFailed = credentialsFailed || discoveryCredentialsFailed
+        if let url = try await firstAvailable(
+            in: advertised.map { [$0] } + candidateGroups.dropFirst(primaryCount),
+            credentialsFailed: &credentialsFailed,
+            using: endpointCheck
+        ) {
+            return url
+        }
+        throw credentialsFailed
+            ? CameraEndpointCheck.Failure.credentials
+            : CameraEndpointCheck.Failure.unavailable
+    }
+
+    nonisolated private static func discoveredStreamURLs(
+        _ input: CameraInput,
+        excluding usedEndpoints: Set<String>,
+        using discovery: @escaping StreamDiscovery
+    ) async throws -> (urls: [URL], credentialsFailed: Bool) {
+        guard input.usesEndpointDiscovery else { return ([], false) }
+        do {
+            let urls = input.advertisedStreamURLs(try await discovery(input))
+                .filter { !usedEndpoints.contains(endpointIdentity(for: $0)) }
+            return (urls, false)
+        } catch is CancellationError {
+            throw CancellationError()
+        } catch {
+            return ([], error as? CameraEndpointCheck.Failure == .credentials)
+        }
+    }
+
+    nonisolated private static func firstAvailable(
+        in candidateGroups: some Sequence<[URL]>,
+        credentialsFailed: inout Bool,
+        using endpointCheck: @escaping EndpointCheck
+    ) async throws -> URL? {
         for candidates in candidateGroups {
             try Task.checkCancellation()
             do {
                 return try await firstAvailable(candidates, using: endpointCheck)
             } catch is CancellationError {
                 throw CancellationError()
-            } catch let error as CameraEndpointCheck.Failure where error == .credentials {
+            } catch CameraEndpointCheck.Failure.credentials {
                 credentialsFailed = true
             } catch {
                 continue
             }
         }
-        throw credentialsFailed
-            ? CameraEndpointCheck.Failure.credentials
-            : CameraEndpointCheck.Failure.unavailable
+        return nil
     }
 
     nonisolated private static func firstAvailable(

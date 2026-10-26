@@ -25,12 +25,15 @@ Supported camera streams:
 - Reolink over HTTPS-FLV (tested with RLC-520A and RLC-810A)
 - Tapo over RTSP (`/stream1` and `/stream2`)
 - Eufy over RTSP (`/live0` and `/live1`)
+- ONVIF cameras with H.264 RTSP streams
 
-Enable RTSP on Tapo and Eufy cameras that support it and use the camera's stream credentials. You can also enter a complete HTTPS-FLV or RTSP stream URL. For local testing, use the [camera mock server](mock/README.md).
+Enable RTSP on Tapo and Eufy cameras that support it and use the camera's stream credentials. For other cameras, enable ONVIF and use an ONVIF user. You can also enter a complete HTTPS-FLV or RTSP stream URL. For local testing, use the [camera mock server](mock/README.md).
 
 ## Usage
 
 Add a camera in Settings by clicking "Add camera". Enter the camera's local IP address, username, and password if required. The Mac and the cameras need to be on the same network.
+
+Meerkat first tries the main Reolink and Tapo endpoints, then the H.264 streams the camera advertises over ONVIF, then the remaining known endpoints. It saves the first stream that plays.
 
 Use the visibility toggle beside each camera to show or hide it in the grid. Duplicate a camera in Settings to reuse its connection details. Enable "Start Meerkat at login" to start Meerkat when you sign in.
 

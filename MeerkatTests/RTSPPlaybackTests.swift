@@ -194,7 +194,9 @@ struct RTSPMockIntegrationTests {
             camera.authenticationRequired = false
             container.mainContext.insert(camera)
             try container.mainContext.save()
-            let editor = CameraConfigurationEditor(camera: camera, debounceDuration: .zero)
+            let editor = CameraConfigurationEditor(
+                camera: camera, debounceDuration: .zero, streamDiscovery: { _ in [] }
+            )
             var input = CameraInput(host)
             input.username = credentials.user ?? ""
             input.password = credentials.password ?? ""
